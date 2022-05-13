@@ -18,13 +18,13 @@ int include_nl_types_h(Lib *self, FILE *file) {
 
 int test_nl_types_h(Lib *self, FILE *file) {
 #   ifndef BLTN_CATCLOSE
-#   define BLTN_CATCLOSE catclose?
+#   define BLTN_CATCLOSE catclose
 #   endif
 #   ifndef BLTN_CATGETS
-#   define BLTN_CATGETS catgets?
+#   define BLTN_CATGETS catgets
 #   endif
 #   ifndef BLTN_CATOPEN
-#   define BLTN_CATOPEN catopen?
+#   define BLTN_CATOPEN catopen
 #   endif
     self->catclose=BLTN_CATCLOSE;
     self->catgets=BLTN_CATGETS;
