@@ -14,21 +14,6 @@ int include_semaphore_h(Lib *self, FILE *file) {
 }
 
 int test_semaphore_h(Lib *self, FILE *file) {
-/*
-struct{
-int
-self->close=BLTN_SEM_CLOSE;
-self->destroy=BLTN_SEM_DESTROY;
-self->getvalue=BLTN_SEM_GETVALUE;
-self->init=BLTN_SEM_INIT;
-self->post=BLTN_SEM_POST;
-self->timedwait=BLTN_SEM_TIMEDWAIT;
-self->trywait=BLTN_SEM_TRYWAIT;
-self->unlink=BLTN_SEM_UNLINK;
-self->wait=BLTN_SEM_WAIT;
-sem_p
-self->open=BLTN_SEM_OPEN;
-*/
 #   ifndef BLTN_SEM_CLOSE
 #   define BLTN_SEM_CLOSE sem_close
 #   endif
