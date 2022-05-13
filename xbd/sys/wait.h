@@ -1,6 +1,5 @@
-#ifndef _XBD_WAIT_H
-#define _XBD_WAIT_H
-
+#pragma once
+// "c_*" is a reserved prefix
 typedef struct rusage *rusage_p;
 typedef int wstatus, *wstatus_p;
 typedef int waitop;
