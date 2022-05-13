@@ -1,107 +1,120 @@
+
 #pragma once
-// "c_*" is a reserved prefix
-typedef struct rusage *rusage_p;
-typedef int wstatus, *wstatus_p;
-typedef int waitop;
 
-struct c_sys_wait_ffi {
-    int   (*waitid)     (idtype_t, id_t, siginfo_p, waitop); 
-    pid_t (*wait)       (wstatus_p); 
-    pid_t (*wait3)      (wstatus_p, waitop, rusage_p);
-    pid_t (*wait4)      (pid_t, wstatus_p, waitop, rusage_p); 
-    pid_t (*waitpid)    (pid_t, wstatus_p, waitop);
-    int (*WEXITSTATUS)  (wstatus);
-    int (*WCOREDUMP)    (wstatus);
-    int (*WTERMSIG)     (wstatus);
-    int (*WSTOPSIG)     (wstatus);
-    int (*WIFEXITED)    (wstatus);
-    int (*WIFSTOPPED)   (wstatus);
-    int (*WIFSIGNALED)  (wstatus);
-    int (*WIFCONTINUED) (wstatus);
-};
-
-void print_sys_wait_h(void) {
-
-    Header c_sys_wait_h = {
-        .path = "<sys/wait.h>",
-        .enums = (Enum[]) {
-
-            // idtype_t (aka P_*)
-            {
-                .name="P",
-                .defs= (Const[]) {
-                    C__EDEF(P, PGID),
-                    C__EDEF(P, ALL),
-                    C__EDEF(P, PID),
-                    {0}
-                },
-            },
-
-            // "waitop"
-            {
-                .name = "",
-                .defs = (Const[]) {
-                    // wait[p]id
-                    // wait[i]d
-                    C__EREF(WUNTRACED),   //  [-p]
-                    C__EREF(WCONTINUED),  //  [ip]
-                    C__EREF(WNOHANG),    //  [ip]
-                    C__EREF(WEXITED),     //  [i-]
-                    C__EREF(WNOWAIT),     //  [i-]
-                    C__EREF(WSTOPPED),    //  [i-]
-                    {0}
-                },
-                .fmt="x",
-            },
-
-            // STOP
-            {0}
-        }
-    };
-    Header_print(&c_sys_wait_h);
-    
-}
-
-
-
-int c_WEXITSTATUS(int status) {
+int c_wexitstatus(int status) {
     return (status&0xff00)>>8;
-};
-
-int c_WCOREDUMP(int status) {
+}
+int c_wcoredump(int status) {
     return status&0x80;
 }
-
-int c_WTERMSIG(int status) {
+int c_wtermsig(int status) {
     return status&0x7f;
 } 
-
-int c_WSTOPSIG(int status) {
+int c_wstopsig(int status) {
     return (status&0xff00)>>8;
 }
-
-int c_WIFEXITED(int status) {
+int c_wifexited(int status) {
     return !(0x7f&status);
 }
-
-int c_WIFSTOPPED(int status) {
+int c_wifstopped(int status) {
     return (0x7f&status) == 0x7f;
 }
-
-int c_WIFSIGNALED(int status) {
+int c_wifsignaled(int status) {
     return (0x7f&(status+1)) >= 2;
 }
-
-int c_WIFCONTINUED(int status) {
+int c_wifcontinued(int status) {
     return status == 0xffff;
 }
-
-int c_W_EXITCODE(int xcode, int signo) {
+int c_w_exitcode(int xcode, int signo) {
     return xcode<<8|signo;
 }
-
-int c_W_STOPCODE(int signo) {
+int c_w_stopcode(int signo) {
     return signo<<8|0x7f;
 }
 
-#endif
+int include_sys_wait_h(Lib *self, FILE *file) {
+
+#   ifndef BLTN_WEXITSTATUS
+#   define BLTN_WEXITSTATUS c_wexitstatus
+#   endif
+
+#   ifndef BLTN_WIFSTOPPED
+#   define BLTN_WIFSTOPPED c_wifstopped
+#   endif 
+
+#   ifndef BLTN_WIFCONTINUED
+#   define BLTN_WIFCONTINUED c_wifcontinued
+#   endif
+
+#   ifndef BLTN_WIFEXITED
+#   define BLTN_WIFEXITED c_wifexited
+#   endif
+
+#   ifndef BLTN_WIFSIGNALED
+#   define BLTN_WIFSIGNALED c_wifsignaled
+#   endif
+    
+#   ifndef BLTN_WSTOPSIG
+#   define BLTN_WSTOPSIG c_wstopsig
+#   endif
+
+#   ifndef BLTN_WTERMSIG
+#   define BLTN_WTERMSIG c_wtermsig
+#   endif
+
+#   ifndef BLTN_WCOREDUMP
+#   define BLTN_WCOREDUMP c_wcoredump
+#   endif
+
+#   ifndef BLTN_WAIT
+#   define BLTN_WAIT wait
+#   endif
+
+#   ifndef BLTN_WAITPID
+#   define BLTN_WAITPID waitpid
+#   endif
+
+#   ifndef BLTN_WAITID
+#   define BLTN_WAITID waitid
+#   endif
+
+#   ifndef BLTN_WAIT3
+#   define BLTN_WAIT3 0
+#   endif
+
+#   ifndef BLTN_WAIT4
+#   define BLTN_WAIT4 0
+#   endif
+
+    self[0].WEXITSTATUS = BLTN_WEXITSTATUS;
+    self[0].WIFSTOPPED  = BLTN_WIFSTOPPED;
+    self[0].WIFCONTINUED= BLTN_WIFCONTINUED;
+    self[0].WIFEXITED   = BLTN_WIFEXITED;
+    self[0].WIFSIGNALED = BLTN_WIFSIGNALED;
+    self[0].WSTOPSIG    = BLTN_WSTOPSIG;
+    self[0].WTERMSIG    = BLTN_WTERMSIG;
+    self[0].WCOREDUMP   = BLTN_WCOREDUMP;
+    self[0].wait        = BLTN_WAIT;
+    self[0].waitpid     = BLTN_WAITPID;
+    self[0].waitid      = BLTN_WAITID;
+    self[0].wait3       = BLTN_WAIT3;
+    self[0].wait4       = BLTN_WAIT4;
+
+    __basedef(sys_wait_h, "<sys/wait.h>")
+        __dentr(enums, Enum[])
+            __predef("P")
+                EDEF_(P,PID)
+                EDEF_(P,PGID)
+                EDEF_(P,ALL)
+            __preend("P", .sort=C__VSORT)
+            __predef("")
+                EREF(WCONTINUED)
+                EREF(WNOHANG)
+                EREF(WNOWAIT)
+                EREF(WUNTRACED)
+                EREF(WEXITED)
+                EREF(WSTOPPED)
+            __preend("", .fmt="x")
+        __dexit(enums)
+    __baseret(sys_wait_h)
+}
