@@ -1,69 +1,69 @@
 
 #pragma once
 
-int c_wexitstatus(int status) {
+int bltn_wexitstatus(int status) {
     return (status&0xff00)>>8;
 }
-int c_wcoredump(int status) {
+int bltn_wcoredump(int status) {
     return status&0x80;
 }
-int c_wtermsig(int status) {
+int bltn_wtermsig(int status) {
     return status&0x7f;
 } 
-int c_wstopsig(int status) {
+int bltn_wstopsig(int status) {
     return (status&0xff00)>>8;
 }
-int c_wifexited(int status) {
+int bltn_wifexited(int status) {
     return !(0x7f&status);
 }
-int c_wifstopped(int status) {
+int bltn_wifstopped(int status) {
     return (0x7f&status) == 0x7f;
 }
-int c_wifsignaled(int status) {
+int bltn_wifsignaled(int status) {
     return (0x7f&(status+1)) >= 2;
 }
-int c_wifcontinued(int status) {
+int bltn_wifcontinued(int status) {
     return status == 0xffff;
 }
-int c_w_exitcode(int xcode, int signo) {
+int bltn_w_exitcode(int xcode, int signo) {
     return xcode<<8|signo;
 }
-int c_w_stopcode(int signo) {
+int bltn_w_stopcode(int signo) {
     return signo<<8|0x7f;
 }
 
 int include_sys_wait_h(Lib *self, FILE *file) {
 
 #   ifndef BLTN_WEXITSTATUS
-#   define BLTN_WEXITSTATUS c_wexitstatus
+#   define BLTN_WEXITSTATUS bltn_wexitstatus
 #   endif
 
 #   ifndef BLTN_WIFSTOPPED
-#   define BLTN_WIFSTOPPED c_wifstopped
+#   define BLTN_WIFSTOPPED bltn_wifstopped
 #   endif 
 
 #   ifndef BLTN_WIFCONTINUED
-#   define BLTN_WIFCONTINUED c_wifcontinued
+#   define BLTN_WIFCONTINUED bltn_wifcontinued
 #   endif
 
 #   ifndef BLTN_WIFEXITED
-#   define BLTN_WIFEXITED c_wifexited
+#   define BLTN_WIFEXITED bltn_wifexited
 #   endif
 
 #   ifndef BLTN_WIFSIGNALED
-#   define BLTN_WIFSIGNALED c_wifsignaled
+#   define BLTN_WIFSIGNALED bltn_wifsignaled
 #   endif
     
 #   ifndef BLTN_WSTOPSIG
-#   define BLTN_WSTOPSIG c_wstopsig
+#   define BLTN_WSTOPSIG bltn_wstopsig
 #   endif
 
 #   ifndef BLTN_WTERMSIG
-#   define BLTN_WTERMSIG c_wtermsig
+#   define BLTN_WTERMSIG bltn_wtermsig
 #   endif
 
 #   ifndef BLTN_WCOREDUMP
-#   define BLTN_WCOREDUMP c_wcoredump
+#   define BLTN_WCOREDUMP bltn_wcoredump
 #   endif
 
 #   ifndef BLTN_WAIT
@@ -86,19 +86,19 @@ int include_sys_wait_h(Lib *self, FILE *file) {
 #   define BLTN_WAIT4 0
 #   endif
 
-    self[0].WEXITSTATUS = BLTN_WEXITSTATUS;
-    self[0].WIFSTOPPED  = BLTN_WIFSTOPPED;
-    self[0].WIFCONTINUED= BLTN_WIFCONTINUED;
-    self[0].WIFEXITED   = BLTN_WIFEXITED;
-    self[0].WIFSIGNALED = BLTN_WIFSIGNALED;
-    self[0].WSTOPSIG    = BLTN_WSTOPSIG;
-    self[0].WTERMSIG    = BLTN_WTERMSIG;
-    self[0].WCOREDUMP   = BLTN_WCOREDUMP;
-    self[0].wait        = BLTN_WAIT;
-    self[0].waitpid     = BLTN_WAITPID;
-    self[0].waitid      = BLTN_WAITID;
-    self[0].wait3       = BLTN_WAIT3;
-    self[0].wait4       = BLTN_WAIT4;
+    self->WEXITSTATUS = BLTN_WEXITSTATUS;
+    self->WIFSTOPPED  = BLTN_WIFSTOPPED;
+    self->WIFCONTINUED= BLTN_WIFCONTINUED;
+    self->WIFEXITED   = BLTN_WIFEXITED;
+    self->WIFSIGNALED = BLTN_WIFSIGNALED;
+    self->WSTOPSIG    = BLTN_WSTOPSIG;
+    self->WTERMSIG    = BLTN_WTERMSIG;
+    self->WCOREDUMP   = BLTN_WCOREDUMP;
+    self->wait        = BLTN_WAIT;
+    self->waitpid     = BLTN_WAITPID;
+    self->waitid      = BLTN_WAITID;
+    self->wait3       = BLTN_WAIT3;
+    self->wait4       = BLTN_WAIT4;
 
     __basedef(sys_wait_h, "<sys/wait.h>")
         __dentr(enums, Enum[])
