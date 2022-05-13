@@ -56,6 +56,9 @@ int include_signal_h(Lib *self, FILE *file) {
 #   ifndef BLTN_SIGINTERRUPT
 #   define BLTN_SIGINTERRUPT siginterrupt
 #   endif
+#   ifdef BLTN_BSD_SIGNAL
+    self->bsd_signal = BLTN_BSD_SIGNAL;
+#   endif
 #   ifndef BLTN_SIGHOLD
 #   define BLTN_SIGHOLD 0
 #   endif
