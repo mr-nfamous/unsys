@@ -7,11 +7,6 @@
 #include <assert.h>
 #include <time.h>
 
-/*
-This is necessary because C explicitly permits arbitrary 
-ordering of the tv_sec and tv_nsec members...
-*/
-
 static_assert(
     offsetof(struct timespec, tv_sec) 
 <   offsetof(struct timespec, tv_nsec),
@@ -22,7 +17,7 @@ static_assert(
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
-//#include <stdint.h>
+
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -37,7 +32,7 @@ static_assert(
 #define TIMENS_NSEC_MIN     (ZERO)
 #define TIMENS_FSEC_MIN     ((double) TIMENS_SEC_MIN)
 #define TIMENS_FSEC_MAX     ((double) TIMENS_SEC_MAX)
-/* Q = quaque */
+/* Q = quaque (latin) */
 #define MINUTES_QH      (60)
 #define HOURS_QD        (24)
 #define DAYS_QW         (7)
@@ -80,10 +75,9 @@ typedef enum {
 } weekday_t;
 
 enum TIME_UNIT {
-
-    SECONDS,        /* SI base unit of time */
-    //YOCTOSECONDS,   /*  UNUSED 1E-24 seconds */
-    //ZEPTOSECONDS,   /*  UNUSED 1E-21 seconds */ 
+    SECONDS,        /*  SI base unit of time */
+/*  YOCTOSECONDS,   <UNUSED> 1E-24 seconds */
+/*  ZEPTOSECONDS,   <UNUSED> 1E-21 seconds */ 
     ATTOSECONDS,    /*  (1÷1'000'000'000'000'000'000) */
     FEMTOSECONDS,   /*  (1÷1'000'000'000'000'000) */
     PICOSECONDS,    /*  (1÷1'000'000'000'000) */
@@ -100,8 +94,8 @@ enum TIME_UNIT {
     TERASECONDS,    /*  (1×1'000'000'000'000 */
     PETASECONDS,    /*  (1×1'000'000'000'000'000 */
     EXASECONDS,     /*  (1×1'000'000'000'000'000'000 */
-    //ZETTASECONDS,   /*  UNUSED 1E+21 seconds */
-    //YOTTASECONDS,   /*  UNUSED 1E+24 seconds */
+/*  ZETTASECONDS,   <UNUSED> 1E+21 seconds */
+/*  YOTTASECONDS,   <UNUSED> 1E+24 seconds */
     MINUTES,        /*  (1×60) */
     HOURS,          /*  (1×3'600 */
     DAYS,           /*  (1×86'000 */
@@ -113,6 +107,7 @@ enum TIME_UNIT {
 };
 
 struct untm {
+/*  Compact struct tm alternative */
     year_t
         tm_year;        /*  [-32'000'000'000..+32'000'000'000] (±32 Gy)*/
     unsigned            /*              (0/32)      */
@@ -168,82 +163,26 @@ typedef struct {
 
 timens_t *
 timens_clr(timens_t *tv);
-/* Zero initialize tv_sec & tv_nsec fields 
-
-ARGUMENT(S):
-    [0]: pointer to object that is to be initialized 
-SUCCESS:
-    Returns tv
-FAILURE:
-    Returns NULL after setting errno to:
-    * EFAULT, because tv was a NULL pointer
-*/
+/*  Zero initialize fields of target */
 
 timens_t *
 timens_init(timens_t *tv, time_t tv_sec, long tv_nsec);
-/* Initialize fields of timens struct 
+/* Initialize fields of target */
 
-ARGUMENT(S):
-    [0]: pointer to object that is to be initialized 
-    [1]: seconds [TIMENS_SEC_MIN..TIMENS_SEC_MAX]
-    [2]: nanoseconds [TIMENS_NSEC_MIN..TIMENS_NSEC_MAX]
-SUCCESS: 
-    Returns ARGUMENT[0]
-FAILURE:
-    Returns NULL after setting errno to:
-    * ERANGE, because the value of tv_sec was not within 
-    the range: [TIMENS_SEC_MIN..TIMENS_SEC_MAX]
-    * ERANGE, because the value of tv_nsec was not within 
-    the range: [TIMENS_NSEC_MIN..TIMENS_NSEC_MAX]
-*/
 
 timens_t *
 timens_fromtime(timens_t *tv, time_t t, enum TIME_UNIT unit);
-/* Initialize timens struct with integer unit of time 
+/*  Initialize target from duration specified as an integer 
+    multiple of time base unit unit. The following example 
+    initializes v to negative 500 μs:
 
-ARGUMENTS(S):
-    [0]: pointer to object that is to be initialized 
-    [1]: the amount of time 
-    [2]: the unit of time
-SUCCESS:
-    Returns ARGUMENT[0]
-FAILURE:
-    Returns NULL after setting errno to:
-    * ERANGE: conversion to seconds would overflow timens_t
-    * ENOTSUP: valid but unsupported unit specified, e.g.
-        YOCTOSECONDS 
-        ZEPTOSECONDS 
-        ZETTASECONDS 
-        YOTTASECONDS
-EXAMPLE:
-    >>> timens_fromtime(&v, 0-500, MICROSECONDS)
-    Initializes struct stored in v to negative 500 μs.
-    Would be equivalent to (timens_t){
-        .tv_sec=(0-1),
-        .tv_nsec=1'000'000'000-(500*1000),
-    }
+        `timens_fromtime(&v, 0-500, MICROSECONDS);`
 */
 
 timens_t *
 timens_fromftime(timens_t *tv, double t);
-/* Initialize from number of secs specified as double
+/*  Initialize target from duration specified as a double.
 
-ARGUMENTS:
-    [0]: pointer to object that is to be initialized 
-    [1]: number seconds 
-EXAMPLE:
-    >>> timens_fromftime(&v, 8388608.123456789)
-    Would be equivalent to (timens_t){
-        .tv_sec=8'388'608,
-        .tv_nsec=123'456'789,
-    }
-SUCCESS:
-    Returns ARGUMENT[0]
-FAILURE:
-    Return NULL after setting errno to:
-    * ERANGE, because ARGUMENT[1] exceeds the limit of
-    the type
-NOTES:
     Durations between [-8'388'608..+8'388'608] seconds 
     can be converted to and from double/struct timespec 
     without precision loss.
@@ -251,47 +190,25 @@ NOTES:
 
 timens_t *
 timens_ineg(timens_t *v, const timens_t *t);
-/* Negate the value of a timens object 
-
-ARGUMENTS: 
-    [0]: address at which the result is stored
-    [1]: address of object to be negated (or NULL)
-EXAMPLE:
-    ```
-    timens_t negated;
-    times_ineg(&negated, &(timens_t){
-        tv_sec=(0-1),
-    });
-    ```
-    The struct negated is initialized to -(0-1), i.e. 
-    positive 1 seconds.
-SUCCESS:
-    Returns the address given as ARGUMENT[0]
-FAILURE:
-    Returns NULL after setting errno to:
-    * ERANGE, because ARGUMENT[1] didn't refer to a struct 
-    with a valid representation;
-    * EFAULT, because ARGUMENT[0] was NULL
-NOTES: 
-    If ARGUMENT[1] is NULL, the value of ARGUMENT[0] is 
-    used.
+/*  Store a "negated" copy of target at t at address v.
+    Returns v.
 */
 
 timens_t *
 timens_iabs(timens_t *restrict v, const timens_t *t);
-/* Store |t| in v */
+/* Store |t| in v   */
 
 timens_t 
 timens_abs(const timens_t *t);
-/* Compute |t| */
+/* Compute |t|      */
 
 timens_t 
 timens_pos(const timens_t *t);
-/* Compute +t*/
+/* Compute +t       */
 
 timens_t 
 timens_neg(const timens_t *t);
-/* Compute -t */
+/* Compute -t       */
 
 timens_t 
 timens_floor(const timens_t *t);
@@ -352,9 +269,7 @@ timens_cmp(const timens_t *a, const timens_t *b);
 
 ptrdiff_t 
 timens_str(const timens_t *restrict t, char s[restrict]);
-/* Store the †ISO-8601 representation of t in s
-
-† Almost but not quite
+/*  Store the ISO-8601-ish representation of t in s
 */
 
 struct timens {
@@ -741,49 +656,7 @@ static inline const char *
 time_unit_GET_NAME(enum TIME_UNIT id) {
     return timens.units[id].name;
 }
-/*
-static ptrdiff_t
-time_unit_REPR(const struct time_unit *unit, FILE *dst, const char *fmt) {
-    if (dst == NULL) {
-        dst = stdout;
-    }
-    int w = 0;
-    int x = fprintf(dst, "(struct time_unit){\n");
-    if (x < 0) goto fail;
-    else w += x;
-    if ((x=fprintf(dst, "    .nname\"%s\",\n", unit->name)) < 0) {
-        fail: {
-            exit(EXIT_FAILURE);
-        }
-    }
-    w += x;
-    if ((x=fprintf(dst, "    .symbol=u8\"%s\",\n", unit->symbol)) < 0) {
-        goto fail;
-    }
-    w += x;
-    if ((x=fprintf(dst, "    .n=%jd,\n", unit->n)) < 0) {
-        goto fail;
-    }
-    w += x;
-    if ((x=fprintf(dst, "    .d=%jd,\n", unit->d)) < 0) {
-        goto fail;
-    }
-    w += x;
-    if ((x=fprintf(dst, "    .r={\n")) < 0) {
-        goto fail;
-    }
-    w += x;
-    if ((x=fprintf(dst, "        .n=%jd,\n", unit->r.n)) < 0) {
-        goto fail;
-    }
-    w += x;
-    if ((x=fprintf(dst, "        .d=%jd,\n", unit->r.d)) < 0) {
-        goto fail;
-    }
-    w += x;
-    return w+fprintf(dst, "    }\n}\n");
-}
-*/
+
 static inline void
 timens_units_LOAD(const struct time_unit **v, enum TIME_UNIT i) {
     *v = timens.units+i;
