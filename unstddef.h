@@ -14,12 +14,12 @@
 #include <stddef.h>
 #include <stdnoreturn.h>
 
-#ifndef static_assert
-#define static_assert _Static_assert
-#endif
+
+#define arraylen(a) ((sizeof a)/(sizeof *(a)))
 
 // #include <uchar.h>
 // #include <wchar.h>
+#include <dirent.h>
 
 typedef                     _Bool    bit_t;
 typedef                      char   char_t;
@@ -67,11 +67,15 @@ typedef struct {
 } kw_t;
 
 typedef signed
-    errno_t, // type of an E[A-Z]+
-    signo_t, // type of SIG[A-Z]+ consts
-    nchar_t, // return type of printf() etc
-    fileno_t; // return type of fileno()
+    errno_t,    // E[A-Z]+ constants from errno.h
+    signo_t,    // SIG[A-Z]+ constants from signal.h
+    nchar_t,    // returned by printf et al 
+    fileno_t,   // fileno_t fileno(FILE *)
+    dirfd_t,    // dirfd_t dirfd(DIR *) 
+    sockfd_t    // socket()
+    ;           // return type of fileno()
 
+typedef char filename_t[4096];
 typedef unsigned hash_t; // type of hash values
 
 #define UN_HASHED 0xFFFFFFFFU
@@ -255,4 +259,8 @@ struct memry {
     };
 };
 */
+
+
+
+
 

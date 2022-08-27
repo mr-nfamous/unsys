@@ -3,32 +3,32 @@
 
 #include "unctype.h"
 
-static const unsigned 
+static const unsigned int
 CTYPE_ASCII [256] = {
-    [0x00] = UN_ASCII|UN_CNTRL,    
-    [0x01] = UN_ASCII|UN_CNTRL,    
-    [0x02] = UN_ASCII|UN_CNTRL,    
-    [0x03] = UN_ASCII|UN_CNTRL,   
-    [0x04] = UN_ASCII|UN_CNTRL,   
-    [0x05] = UN_ASCII|UN_CNTRL,    
-    [0x06] = UN_ASCII|UN_CNTRL,  
-    [0x07] = UN_ASCII|UN_CNTRL,         // \a
-    [0x08] = UN_ASCII|UN_CNTRL,         // \b
-    [0x09] = UN_ASCII|UN_CNTRL|UN_SPACE|UN_BLANK, // \t
-    [0x0a] = UN_ASCII|UN_CNTRL|UN_SPACE,// \n
-    [0x0b] = UN_ASCII|UN_CNTRL|UN_SPACE,// \v
-    [0x0c] = UN_ASCII|UN_CNTRL|UN_SPACE,// \f
-    [0x0d] = UN_ASCII|UN_CNTRL|UN_SPACE,// \r
-    [0x0e] = UN_ASCII|UN_CNTRL, 
-    [0x0f] = UN_ASCII|UN_CNTRL,   
-    [0x10] = UN_ASCII|UN_CNTRL,   
-    [0x11] = UN_ASCII|UN_CNTRL,  
-    [0x12] = UN_ASCII|UN_CNTRL,   
-    [0x13] = UN_ASCII|UN_CNTRL,   
-    [0x14] = UN_ASCII|UN_CNTRL, 
-    [0x15] = UN_ASCII|UN_CNTRL, 
-    [0x16] = UN_ASCII|UN_CNTRL, 
-    [0x17] = UN_ASCII|UN_CNTRL, 
+    [000] = UN_ASCII|UN_CNTRL,    
+    [001] = UN_ASCII|UN_CNTRL,    
+    [002] = UN_ASCII|UN_CNTRL,    
+    [003] = UN_ASCII|UN_CNTRL,   
+    [004] = UN_ASCII|UN_CNTRL,   
+    [005] = UN_ASCII|UN_CNTRL,    
+    [006] = UN_ASCII|UN_CNTRL,  
+    [007] = UN_ASCII|UN_CNTRL,         // \a
+    [010] = UN_ASCII|UN_CNTRL,         // \b
+    [011] = UN_ASCII|UN_CNTRL|UN_SPACE|UN_BLANK, // \t
+    [012] = UN_ASCII|UN_CNTRL|UN_SPACE,// \n
+    [013] = UN_ASCII|UN_CNTRL|UN_SPACE,// \v
+    [014] = UN_ASCII|UN_CNTRL|UN_SPACE,// \f
+    [015] = UN_ASCII|UN_CNTRL|UN_SPACE,// \r
+    [016] = UN_ASCII|UN_CNTRL, 
+    [017] = UN_ASCII|UN_CNTRL,   
+    [020] = UN_ASCII|UN_CNTRL,   
+    [021] = UN_ASCII|UN_CNTRL,  
+    [022] = UN_ASCII|UN_CNTRL,   
+    [023] = UN_ASCII|UN_CNTRL,   
+    [024] = UN_ASCII|UN_CNTRL, 
+    [025] = UN_ASCII|UN_CNTRL, 
+    [026] = UN_ASCII|UN_CNTRL, 
+    [027] = UN_ASCII|UN_CNTRL, 
     [030] = UN_ASCII|UN_CNTRL,   
     [031] = UN_ASCII|UN_CNTRL,  
     [032] = UN_ASCII|UN_CNTRL,  
@@ -135,50 +135,62 @@ CTYPE_ASCII [256] = {
     [0x7f]= UN_ASCII|UN_CNTRL,
 };
 
-static inline bool ISALPHA(char c) {
+static inline bool 
+ISALPHA(char c) {
     return CTYPE_ASCII[c]&UN_ALPHA;
 }
 
-static inline bool ISALNUM(char c) {
+static inline bool 
+ISALNUM(char c) {
     return CTYPE_ASCII[c]&UN_ALNUM;
 }
 
-static inline bool ISASCII(char c) {
-    return true;
+static inline bool 
+ISASCII(char c) {
+    return c < 128;
 }
 
-static inline bool ISBLANK(char c) {
+static inline bool 
+ISBLANK(char c) {
     return CTYPE_ASCII[c]&UN_BLANK;
 }
 
-static inline bool ISCNTRL(char c) {
+static inline bool 
+ISCNTRL(char c) {
     return CTYPE_ASCII[c]&UN_CNTRL;
 }
 
-static inline bool ISDIGIT(char c) {
+static inline bool 
+ISDIGIT(char c) {
     return CTYPE_ASCII[c]&UN_DIGIT;
 }
 
-static inline bool ISSPACE(char c) {
+static inline bool 
+ISSPACE(char c) {
     return CTYPE_ASCII[c]&UN_SPACE;
 }
 
-static inline bool ISLOWER(char c) {
+static inline bool 
+ISLOWER(char c) {
     return CTYPE_ASCII[c]&UN_LOWER;
 }
 
-static inline bool ISPRINT(char c) {
+static inline bool 
+ISPRINT(char c) {
     return CTYPE_ASCII[c]&UN_PRINT;
 }
 
-static inline bool ISUPPER(char c) {
+static inline bool 
+ISUPPER(char c) {
     return CTYPE_ASCII[c]&UN_UPPER;
 }
 
-static inline bool ISGRAPH(char c) {
+static inline bool 
+ISGRAPH(char c) {
     return CTYPE_ASCII[c]&UN_GRAPH;
 }
 
-static inline bool ISXDIGIT(char c) {
+static inline bool 
+ISXDIGIT(char c) {
     return CTYPE_ASCII[c]&UN_XDIGIT;
 }

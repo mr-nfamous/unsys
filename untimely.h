@@ -1,16 +1,34 @@
 
-/*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳ */
+/*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳   
+
+*/
 #pragma once
 
-#include <time.h>
 #include <assert.h>
-#include <stddef.h>
+#include <time.h>
+
+/*
+This is necessary because C explicitly permits arbitrary 
+ordering of the tv_sec and tv_nsec members...
+*/
 
 static_assert(
     offsetof(struct timespec, tv_sec) 
 <   offsetof(struct timespec, tv_nsec),
     "layout of platform's struct timespec is incompatible");
-    
+
+#include <errno.h>
+#include <inttypes.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stddef.h>
+//#include <stdint.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <wchar.h>
+
+#include "unopcode.h"
 #include "unint.h"
 
 #define TIMENS_SEC_MAX      INT64_C(1009822464000000000)
@@ -19,43 +37,100 @@ static_assert(
 #define TIMENS_NSEC_MIN     (ZERO)
 #define TIMENS_FSEC_MIN     ((double) TIMENS_SEC_MIN)
 #define TIMENS_FSEC_MAX     ((double) TIMENS_SEC_MAX)
+/* Q = quaque */
 #define MINUTES_QH      (60)
 #define HOURS_QD        (24)
 #define DAYS_QW         (7)
 #define DAYS_PER_WEEK   (7)
+
 #define SECONDS_QM      (60)
 #define SECONDS_QH      (SECONDS_QM*MINUTES_QH)
 #define SECONDS_QD      (SECONDS_QH*HOURS_QD)
 #define SECONDS_QW      (SECONDS_QD*DAYS_QW)
 #define SECONDS_QA      (31556952)
 
+#define YEAR_MAX (INT64_C(32)*BILLION)
+#define YEAR_MIN (INT64_C(0)-YEAR_MAX)
+
+typedef time_t year_t;
+
+typedef enum {
+    JAN=1,
+    FEB,
+    MAR,
+    APR,
+    MAY,
+    JUN,
+    JUL,
+    AUG,
+    SEP,
+    OCT,
+    NOV,
+    DEC,
+} month_t;
+
+typedef enum {
+    SUN=1,
+    MON,
+    TUE,
+    WED,
+    THU,
+    FRI,
+    SAT,
+} weekday_t;
+
 enum TIME_UNIT {
-    SECONDS,
-    ATTOSECONDS,
-    FEMTOSECONDS,
-    PICOSECONDS,
-    NANOSECONDS,
-    MICROSECONDS,
-    MILLISECONDS,
-    CENTISECONDS,
-    DECISECONDS,
-    DECASECONDS,
-    HECTOSECONDS,
-    KILOSECONDS,
-    MEGASECONDS,
-    GIGASECONDS,
-    TERASECONDS,
-    PETASECONDS,
-    EXASECONDS,
-    MINUTES,
-    HOURS,
-    DAYS,
-    WEEKS,
-    YEARS,
-    TIME_UNIT_NIL,
+
+    SECONDS,        /* SI base unit of time */
+    //YOCTOSECONDS,   /*  UNUSED 1E-24 seconds */
+    //ZEPTOSECONDS,   /*  UNUSED 1E-21 seconds */ 
+    ATTOSECONDS,    /*  (1÷1'000'000'000'000'000'000) */
+    FEMTOSECONDS,   /*  (1÷1'000'000'000'000'000) */
+    PICOSECONDS,    /*  (1÷1'000'000'000'000) */
+    NANOSECONDS,    /*  (1÷1'000'000'000) */
+    MICROSECONDS,   /*  (1÷1'000'000) */
+    MILLISECONDS,   /*  (1÷1'000) */
+    CENTISECONDS,   /*  (1÷100) */
+    DECISECONDS,    /*  (1÷10) */
+    DECASECONDS,    /*  (1×10) */
+    HECTOSECONDS,   /*  (1×100) */
+    KILOSECONDS,    /*  (1×1'000) */
+    MEGASECONDS,    /*  (1×1'000'000 */
+    GIGASECONDS,    /*  (1×1'000'000'000 */
+    TERASECONDS,    /*  (1×1'000'000'000'000 */
+    PETASECONDS,    /*  (1×1'000'000'000'000'000 */
+    EXASECONDS,     /*  (1×1'000'000'000'000'000'000 */
+    //ZETTASECONDS,   /*  UNUSED 1E+21 seconds */
+    //YOTTASECONDS,   /*  UNUSED 1E+24 seconds */
+    MINUTES,        /*  (1×60) */
+    HOURS,          /*  (1×3'600 */
+    DAYS,           /*  (1×86'000 */
+    WEEKS,          /*  (1×604'800) */
+    YEARS,          /*  (1×31'556'952) */
+    TIME_UNIT_NIL,  /*  (1×0) */
     TIME_UNIT_MINMAX,
     TIME_UNIT_MAX,
 };
+
+struct untm {
+    year_t
+        tm_year;        /*  [-32'000'000'000..+32'000'000'000] (±32 Gy)*/
+    unsigned            /*              (0/32)      */
+        tm_mon:     4,  /*  [1..12]     (4/32)      */
+        tm_mday:    5,  /*  [1..31]     (9/32)      */
+        tm_wday:    3,  /*  [1..7]      (12/32)     */
+        tm_yday:    9,  /*  [1..365]    (21/32)     */
+        tm_ywk:     6,  /*  [1..52]     (27/32)     */
+        tm_hour:    5,  /*  [0..24]     (32/32)     */
+        tm_min:     6,  /*  [0..59]     (6/32)      */
+        tm_sec:     6,  /*  [0..60]     (12/32)     */
+        tm_isdst:   1,  /*  [0..1]      (13/32)     */
+        :           0;
+    unsigned 
+        tm_nsec;
+};
+
+typedef struct timespec timens_t;
 
 typedef struct {
     union {
@@ -70,8 +145,6 @@ typedef struct {
     };
     bool zero;
 }   timefrac_t;
-
-typedef struct timespec timens_t;
 
 struct timens_const {
     timens_t pos;
@@ -93,37 +166,196 @@ typedef struct {
     timens_t it_value;
 } itimerns_t;
 
-timens_t *timens_clr(timens_t *);
-timens_t *timens_init(timens_t *, time_t, long);
-timens_t *timens_fromtime(timens_t *restrict, time_t, enum TIME_UNIT);
+timens_t *
+timens_clr(timens_t *tv);
+/* Zero initialize tv_sec & tv_nsec fields 
 
-timens_t *timens_fromftime(timens_t *restrict, double);
+ARGUMENT(S):
+    [0]: pointer to object that is to be initialized 
+SUCCESS:
+    Returns tv
+FAILURE:
+    Returns NULL after setting errno to:
+    * EFAULT, because tv was a NULL pointer
+*/
 
-timens_t *timens_ineg(timens_t *restrict, const timens_t *);
-timens_t *timens_iabs(timens_t *restrict, const timens_t *);
+timens_t *
+timens_init(timens_t *tv, time_t tv_sec, long tv_nsec);
+/* Initialize fields of timens struct 
 
-timens_t timens_abs(const timens_t *);
-timens_t timens_pos(const timens_t *);
-timens_t timens_neg(const timens_t *);
+ARGUMENT(S):
+    [0]: pointer to object that is to be initialized 
+    [1]: seconds [TIMENS_SEC_MIN..TIMENS_SEC_MAX]
+    [2]: nanoseconds [TIMENS_NSEC_MIN..TIMENS_NSEC_MAX]
+SUCCESS: 
+    Returns ARGUMENT[0]
+FAILURE:
+    Returns NULL after setting errno to:
+    * ERANGE, because the value of tv_sec was not within 
+    the range: [TIMENS_SEC_MIN..TIMENS_SEC_MAX]
+    * ERANGE, because the value of tv_nsec was not within 
+    the range: [TIMENS_NSEC_MIN..TIMENS_NSEC_MAX]
+*/
 
-timens_t timens_floor(const timens_t *);
-timens_t timens_trunc(const timens_t *);
-timens_t timens_near(const timens_t *);
-timens_t timens_ceil(const timens_t *);
+timens_t *
+timens_fromtime(timens_t *tv, time_t t, enum TIME_UNIT unit);
+/* Initialize timens struct with integer unit of time 
 
-timens_t timens_round(const timens_t *, ROUND_T);
+ARGUMENTS(S):
+    [0]: pointer to object that is to be initialized 
+    [1]: the amount of time 
+    [2]: the unit of time
+SUCCESS:
+    Returns ARGUMENT[0]
+FAILURE:
+    Returns NULL after setting errno to:
+    * ERANGE: conversion to seconds would overflow timens_t
+    * ENOTSUP: valid but unsupported unit specified, e.g.
+        YOCTOSECONDS 
+        ZEPTOSECONDS 
+        ZETTASECONDS 
+        YOTTASECONDS
+EXAMPLE:
+    >>> timens_fromtime(&v, 0-500, MICROSECONDS)
+    Initializes struct stored in v to negative 500 μs.
+    Would be equivalent to (timens_t){
+        .tv_sec=(0-1),
+        .tv_nsec=1'000'000'000-(500*1000),
+    }
+*/
 
-bool timens_lt(const timens_t *, const timens_t *);
-bool timens_le(const timens_t *, const timens_t *);
-bool timens_eq(const timens_t *, const timens_t *);
-bool timens_ne(const timens_t *, const timens_t *);
-bool timens_gt(const timens_t *, const timens_t *);
-bool timens_ge(const timens_t *, const timens_t *);
-bool timens_not(const timens_t *);
-bool timens_as_bool(const timens_t *);
-int timens_cmp(const timens_t *, const timens_t *);
+timens_t *
+timens_fromftime(timens_t *tv, double t);
+/* Initialize from number of secs specified as double
 
-ptrdiff_t timens_str(const timens_t *restrict, char[restrict]);
+ARGUMENTS:
+    [0]: pointer to object that is to be initialized 
+    [1]: number seconds 
+EXAMPLE:
+    >>> timens_fromftime(&v, 8388608.123456789)
+    Would be equivalent to (timens_t){
+        .tv_sec=8'388'608,
+        .tv_nsec=123'456'789,
+    }
+SUCCESS:
+    Returns ARGUMENT[0]
+FAILURE:
+    Return NULL after setting errno to:
+    * ERANGE, because ARGUMENT[1] exceeds the limit of
+    the type
+NOTES:
+    Durations between [-8'388'608..+8'388'608] seconds 
+    can be converted to and from double/struct timespec 
+    without precision loss.
+*/
+
+timens_t *
+timens_ineg(timens_t *v, const timens_t *t);
+/* Negate the value of a timens object 
+
+ARGUMENTS: 
+    [0]: address at which the result is stored
+    [1]: address of object to be negated (or NULL)
+EXAMPLE:
+    ```
+    timens_t negated;
+    times_ineg(&negated, &(timens_t){
+        tv_sec=(0-1),
+    });
+    ```
+    The struct negated is initialized to -(0-1), i.e. 
+    positive 1 seconds.
+SUCCESS:
+    Returns the address given as ARGUMENT[0]
+FAILURE:
+    Returns NULL after setting errno to:
+    * ERANGE, because ARGUMENT[1] didn't refer to a struct 
+    with a valid representation;
+    * EFAULT, because ARGUMENT[0] was NULL
+NOTES: 
+    If ARGUMENT[1] is NULL, the value of ARGUMENT[0] is 
+    used.
+*/
+
+timens_t *
+timens_iabs(timens_t *restrict v, const timens_t *t);
+/* Store |t| in v */
+
+timens_t 
+timens_abs(const timens_t *t);
+/* Compute |t| */
+
+timens_t 
+timens_pos(const timens_t *t);
+/* Compute +t*/
+
+timens_t 
+timens_neg(const timens_t *t);
+/* Compute -t */
+
+timens_t 
+timens_floor(const timens_t *t);
+/* Round t toward negative infinity */
+
+timens_t 
+timens_trunc(const timens_t *t);
+/* Round t towards zero */
+
+timens_t 
+timens_near(const timens_t *t);
+/* Round t towards the nearest number of seconds */
+
+timens_t 
+timens_ceil(const timens_t *t);
+/* Round t towards positive infinity */
+
+timens_t 
+timens_round(const timens_t *t, ROUND_T mode);
+/* Round t using the specified rounding mode */
+
+
+bool 
+timens_lt(const timens_t *a, const timens_t *b);
+/* Compute a < b */
+
+bool 
+timens_le(const timens_t *a, const timens_t *b);
+/* Compute a ≤ b */
+
+bool 
+timens_eq(const timens_t *a, const timens_t *b);
+/* Compute a = b */
+
+bool 
+timens_ne(const timens_t *a, const timens_t *b);
+/* Compute a ≠ b */
+
+bool 
+timens_gt(const timens_t *a, const timens_t *b);
+/* Compute a > b*/
+
+bool 
+timens_ge(const timens_t *a, const timens_t *b);
+/* Compute a ≥ b */
+
+bool 
+timens_not(const timens_t *t);
+/* Compute !t */
+
+bool 
+timens_as_bool(const timens_t *t);
+/* Compute (bool) t */
+
+int 
+timens_cmp(const timens_t *a, const timens_t *b);
+/* Returns -1 if a < b, 0 if a = b, or +1 if a > b */
+
+ptrdiff_t 
+timens_str(const timens_t *restrict t, char s[restrict]);
+/* Store the †ISO-8601 representation of t in s
+
+† Almost but not quite
+*/
 
 struct timens {
     union {
@@ -160,10 +392,13 @@ struct timens {
     double          FTIMES[65];
     int             FTIMENS[65];
     unsigned char   FTIME_NDIGIT[65];
-    union unop round_ops[ROUND_T_MAX];
+    union unop      round_ops[ROUND_T_MAX];
+    _Bool           LEAP_TABLE[400]; /* Gregorian leap year chart */
+    short           YDAY_TABLE[13]; /* day of year on first of each month */
+    char            MLEN_TABLE[13]; /* days per month */
 };
   
-
+static
 const struct timens timens = {
 
     .consts = {
@@ -223,35 +458,48 @@ const struct timens timens = {
             .n=ONE,
             .d=QUINTILLION,
             .limit=INT64_MAX,
-            .r={ONE, BILLION},
+            .r={
+                .n=ONE, 
+                .d=BILLION,
+            },
         },
         [FEMTOSECONDS] = {
             "FEMTOSECONDS", u8"fs", 
             .n=ONE,
             .d=QUADRILLION,
             .limit=INT64_MAX,
-            .r={ONE, MILLION},
+            .r={
+                .n=ONE, 
+                .d=MILLION,
+            },
         },
         [PICOSECONDS] = {
             "PICOOSECONDS", u8"ps", 
             .n=ONE,
             .d=TRILLION,
             .limit=INT64_MAX,
-            .r={ONE, THOUSAND},
+            .r={
+                .n=ONE, 
+                .d=THOUSAND,
+            },
         },
         [NANOSECONDS] = {
             "NANOOSECONDS", u8"ns", 
             .n=ONE,
             .d=BILLION,
             .limit=INT64_MAX,
-            .r={ONE, ONE, true},
+            .r={
+                .n=ONE, 
+                .d=ONE, 
+                .zero=true,
+            },
         },
         [MICROSECONDS] = {
             "MICROSECONDS", u8"μs", 
             .n=ONE,
             .d=MILLION,
             .limit=INT64_MAX,
-            .r={THOUSAND, ONE},
+            .r={.n=THOUSAND, .d=ONE},
         },
 
         [MILLISECONDS] = {
@@ -259,21 +507,21 @@ const struct timens timens = {
             .n=ONE,
             .d=THOUSAND, 
             .limit=INT64_MAX,
-            .r={MILLION, ONE},
+            .r={.n=MILLION, .d=ONE},
         },
         [CENTISECONDS] = {
             "CENTISECONDS", u8"cs",
             .n=ONE,
             .d=HUNDRED,
             .limit=INT64_MAX,
-            .r={TEN*MILLION, ONE},
+            .r={.n=TEN*MILLION, .d=ONE},
         },
         [DECISECONDS] = {
             "DECISECONDS", u8"ds",
             .n=ONE,
             .d=TEN,
             .limit=INT64_MAX,
-            .r={HUNDRED*MILLION, ONE},
+            .r={.n=HUNDRED*MILLION, .d=ONE},
         },
         [SECONDS] = { 
             "SECONDS",      u8"s", 
@@ -430,19 +678,70 @@ const struct timens timens = {
         [ROUND_CEIL] = {timens_ceil},
         [ROUND_DOWN] = {timens_floor},
     },
+    
+    .LEAP_TABLE = {
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+        1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,
+    },
+
+    .YDAY_TABLE = {
+        000, 000,  31,  59,  90, 120, 151, 181, 212, 243, 273, 304, 334,
+    },
+    /*  [0], ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, ___, */
+    /*  [0], JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC, */
+    .MLEN_TABLE = {
+        0,    31,  28,  31,  30,  31,  30,  31,  31,  30,  31,  30,  31,
+    },
 };
+
+static inline _Bool
+year_CHECK(year_t y) {
+    return (YEAR_MIN <= y) && (y <= YEAR_MAX);
+}
+
+static inline _Bool
+year_ISLEAP(year_t y) {
+    assert(year_CHECK(y));
+    return timens.LEAP_TABLE[y%400];
+}
+
+static inline short
+date_YDAY(time_t y, month_t m, char d) {
+    assert(year_CHECK(y));
+    assert((1 <= m) && (m <= 12));
+    assert((1 <= d) && (d <= 31));
+    return timens.YDAY_TABLE[m]+d+year_ISLEAP(y);
+}
 
 
 static inline _Bool 
 time_unit_CHECK(const enum TIME_UNIT id) {
-    return 0 <= id && id <= TIME_UNIT_MAX;
+    return (0 <= id) && (id <= TIME_UNIT_MAX);
 }
 
 static inline const char *
 time_unit_GET_NAME(enum TIME_UNIT id) {
     return timens.units[id].name;
 }
-
+/*
 static ptrdiff_t
 time_unit_REPR(const struct time_unit *unit, FILE *dst, const char *fmt) {
     if (dst == NULL) {
@@ -484,7 +783,7 @@ time_unit_REPR(const struct time_unit *unit, FILE *dst, const char *fmt) {
     w += x;
     return w+fprintf(dst, "    }\n}\n");
 }
-
+*/
 static inline void
 timens_units_LOAD(const struct time_unit **v, enum TIME_UNIT i) {
     *v = timens.units+i;

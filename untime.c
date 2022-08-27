@@ -1,166 +1,33 @@
 
 /*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳ 
 
-timens: Temporal computations at nanosecond resolution
 
-    aio_suspend
-    utimensat
-    futimens 
-    sched_rr_get_interval
-    mq_timedreceive
-    mq_timedsend 
-    pselect 
-    clock_getres 
-    clock_setres 
-    clock_gettime 
-    clock_settime 
-    clock_nanosleep 
-    nanosleep
-    sem_timedwait 
-    sigtimedwait 
-    pthread_cond_timedwait
-    pthread_mutex_timedlock
-    pthread_rwlock_timedrdlock
-    pthread_rwlock_timedwrlock
 
 */
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <wchar.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <math.h>
+#include <semaphore.h>
+#include <pthread.h>
 
-#include "unopcode.h"
-//#include "unint.h"
+#include "unstddef.h"
 #include "untimely.h"
-
-
-#define arraylen(a) ((sizeof a)/(sizeof *(a)))
-
-typedef unsigned char   char8_t;
-typedef uint_least16_t char16_t;
-typedef uint_least32_t char32_t;
-
-struct bival {
-    int     k;
-    void   *v;
-};
-
-struct bimap {
-    size_t len;
-    const struct bival *map;
-};
-
-static inline const struct bival *
-bimap_GET(const struct bimap *restrict const d, const int k) {
-    for (size_t lo=0, hi=d->len; lo < hi;) {
-        const size_t i = (lo+hi)>>1;
-        if (d->map[i].k == k) {
-            return d->map+i;
-        }
-        if (d->map[i].k > k) {
-            lo = i;
-        }
-        else {
-            hi = i+1;
-        }
-        
-    }
-    return NULL;
-}
-
-/*
-*/
+#include "ununicode.h"
 
 #define unthrow(err, ret) return errno=err, ret
 
+static pthread_spinlock_t Dict_api_lock;
 
-/*
-union timens_methods {
-    bool        (*lt)   (const timens_t *, const timens_t *);
-    bool        (*le)   (const timens_t *, const timens_t *);
-    bool        (*eq)   (const timens_t *, const timens_t *);
-    bool        (*ne)   (const timens_t *, const timens_t *);
-    bool        (*gt)   (const timens_t *, const timens_t *);
-    bool        (*ge)   (const timens_t *, const timens_t *);
-    bool        (*ae)   (const timens_t *, const timens_t *);
-    int         (*cmp)  (const timens_t *, const timens_t *);
-    ptrdiff_t   (*str)  (const timens_t *, char *);
-    ptrdiff_t   (*repr) (const timens_t *, FILE *);
-    timens_t *  (*abs)  (timens_t *, const timens_t *);
-    timens_t *  (*iabs) (timens_t *);
-    timens_t *  (*neg)  (timens_t *, const timens_t *);
-    timens_t *  (*ineg) (timens_t *);
-    timens_t *  (*pos)  (timens_t *, const timens_t *);
-    timens_t *  (*ipos) (timens_t *);
-    timens_t *  (*clr)  (timens_t *);
-    timens_t *  (*add)  (timens_t *, const timens_t *, const timens_t *);
-    timens_t *  (*fadd) (timens_t *, const timens_t *, double);
-    timens_t *  (*ladd) (timens_t *, const timens_t *, long);
-    timens_t *  (*iadd) (timens_t *, const timens_t *);
-    timens_t *  (*ifadd)(timens_t *, double);
-    timens_t *  (*iladd)(timens_t *, long);
-    timens_t *  (*sub)  (timens_t *, const timens_t *, const timens_t *);
-    timens_t *  (*fsub) (timens_t *, const timens_t *, double);
-    timens_t *  (*lsub) (timens_t *, const timens_t *, long);
-    timens_t *  (*isub) (timens_t *, const timens_t *);
-    timens_t *  (*ifsub)(timens_t *, double);
-    timens_t *  (*ilsub)(timens_t *, long);
-    timens_t *  (*fmul) (timens_t *, const timens_t *, double);
-    timens_t *  (*lmul) (timens_t *, const timens_t *, long);
-    timens_t *  (*ifmul)(timens_t *, double);
-    timens_t *  (*ilmul)(timens_t *, long);
-    undiv_t  *  (*div)  (undiv_t *, const timens_t *, const timens_t *);
-    unldiv_t *  (*ldiv) (unldiv_t *, const timens_t *, long);
-    unfdiv_t *  (*fdiv) (unfdiv_t *, const timens_t *, double);
-    */  
-    
-/*
-    
+_Thread_local
+struct timens_locals {
     struct {
-        time_t  (*itime);
-        double  (*ftime);
-        bool    (*boolean);
-    }   as
-
-    (i)add:     <T+60s> + <T+1s>    = <T+61s>
-    (i)ladd:    <T+60s> + 1L        = <T+61s>
-    (i)fadd:    <T+60s> + 1.5       = <T+61.5s>
+        char s[128];
+    } dtostr;
+    struct tm localtime;
     
-    (i)sub:     <T+60s> - <T+1s>    = <T+59s>
-    (i)lsub:    <T+60s> - 80L       = <T-20s>
-    (i)fsub:    <T+60s> - 1.5       = <T+58.5s>
-    
-    (i)lmul:    <T+4s> × 3L     = <T+12s>
-    (i)fmul:    <T+2d> × 0.25   = <T+12h>
-
-    (i)div:    <T+1h> ÷ <T+7m> = (undiv_t){
-        .quot   = (intmax_t) 8, 
-        .rem    = <T+4m>,
-    }
-    (i)ldiv:     <T+1h> ÷ 7     = (unldiv_t){
-        .quot   = <T+8m34s>, 
-        .rem    = <T+0.000002s>
-    }
-    (i)fdiv:    <T+1h> ÷ 2.1    = {unldiv_t){
-        .quot   = <T+28m34.285714s>,
-        .rem    = <T+0.000001s>,
-    }
-        28, 34, 285714
-        
-    }
-    <T+60m> - <T+1m> = <T+59>
-    
-};
-*/
-
+} locals;
 
 
 timens_t *
-timens_init(timens_t *restrict v, time_t tv_sec, long tv_nsec) {
+timens_init(timens_t *v, time_t tv_sec, long tv_nsec) {
     if (!timens_SEC_OK(tv_sec) || !timens_NSEC_OK(tv_nsec)) {
         unthrow(ERANGE, NULL);
     }
@@ -250,9 +117,12 @@ timens_fromtime(timens_t *restrict v, time_t n, enum TIME_UNIT id) {
 }
 
 struct timens_to_time {
-    time_t s_mul, s_div;
-    time_t ns_mul, ns_div;
+    time_t s_mul;
+    time_t s_div;
+    time_t ns_mul;
+    time_t ns_div;
 };
+
 static const struct timens_to_time timens_time_table[] = {
     [SECONDS]      = {ONE,         0, 0,        0},
     [ATTOSECONDS]  = {QUINTILLION, 0, BILLION,  0},
@@ -288,11 +158,11 @@ static const __int128 HUNDREDMILLION128 = (__int128) (MILLION*100);
 static const __int128     MILLION128 = (__int128) MILLION;
 static const __int128    THOUSAND128 = (__int128) THOUSAND;
 static const __int128     HUNDRED128 = (__int128) HUNDRED;
-static const __int128         TEN128 = (__int128) TEN;
+//static const __int128         TEN128 = (__int128) TEN;
 static const __int128   INT64_MAX128  = (__int128) INT64_MAX;
-static const __int128   INT64_MIN128  = (__int128) INT64_MIN;
-static const __int128  NIL128 = 0;
-static const __int128  NEG128 = NIL128-1;
+//static const __int128   INT64_MIN128  = (__int128) INT64_MIN;
+//static const __int128  NIL128 = 0;
+//static const __int128  NEG128 = NIL128-1;
 #endif
 
 static time_t timens_to_attoseconds(const timens_t *restrict v) {
@@ -306,6 +176,7 @@ static time_t timens_to_attoseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_femtoseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -317,6 +188,7 @@ static time_t timens_to_femtoseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_picoseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -328,6 +200,7 @@ static time_t timens_to_picoseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_nanoseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -339,6 +212,7 @@ static time_t timens_to_nanoseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_microseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -350,6 +224,7 @@ static time_t timens_to_microseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_milliseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -361,6 +236,7 @@ static time_t timens_to_milliseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_centiseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -372,6 +248,7 @@ static time_t timens_to_centiseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_deciseconds(const timens_t *restrict v) {
 #   ifdef __SIZEOF_INT128__
     __int128 t = (
@@ -383,57 +260,69 @@ static time_t timens_to_deciseconds(const timens_t *restrict v) {
     return (time_t) t;
 #   endif
 }
+
 static time_t timens_to_decaseconds(const timens_t *restrict v) {
     return v->tv_sec/10;
 }
+
 static time_t timens_to_hectoseconds(const timens_t *restrict v) {
     return v->tv_sec/100;
 }
+
 static time_t timens_to_kiloseconds(const timens_t *restrict v) {
     return v->tv_sec/THOUSAND;
 }
+
 static time_t timens_to_megaseconds(const timens_t *restrict v) {
     return v->tv_sec/MILLION;
 }
+
 static time_t timens_to_gigaseconds(const timens_t *restrict v) {
     return v->tv_sec/BILLION;
 }
+
 static time_t timens_to_teraseconds(const timens_t *restrict v) {
     return v->tv_sec/TRILLION;
 }
+
 static time_t timens_to_petaseconds(const timens_t *restrict v) {
     return v->tv_sec/QUADRILLION;
 }
+
 static time_t timens_to_exaseconds(const timens_t *restrict v) {
     return v->tv_sec/QUINTILLION;
 }
+
 static time_t timens_to_seconds(const timens_t *restrict v) {
     return v->tv_sec;
 }
+
 static time_t timens_to_minutes(const timens_t *restrict v) {
     return v->tv_sec/SECONDS_QM;
 }
+
 static time_t timens_to_hours(const timens_t *restrict v) {
     return v->tv_sec/SECONDS_QH;
 }
+
 static time_t timens_to_days(const timens_t *restrict v) {
     return v->tv_sec/SECONDS_QD;
     
 }
+
 static time_t timens_to_weeks(const timens_t *restrict v) {
     return v->tv_sec/SECONDS_QW;
-    
 }
+
 static time_t timens_to_years(const timens_t *restrict v) {
     return v->tv_sec/SECONDS_QA;
-    
 }
 
-time_t
+static time_t
 (*timens_to_times[])(const timens_t *) = {
-
     [FEMTOSECONDS] = timens_to_femtoseconds,
     [ATTOSECONDS]  = timens_to_attoseconds,
+    [PICOSECONDS]  = timens_to_picoseconds,
     [NANOSECONDS]  = timens_to_nanoseconds,
     [MICROSECONDS] = timens_to_microseconds,
     [MILLISECONDS] = timens_to_milliseconds,
@@ -456,14 +345,14 @@ time_t
 };
 
 time_t
-timens_time(const timens_t *restrict t, enum TIME_UNIT id) {
+timens_time(const timens_t *t, enum TIME_UNIT id) {
+    timens_t v;
     if (!time_unit_CHECK(id)) {
         unthrow(EINVAL, 0);
     }
     if (id == SECONDS) {
         return t->tv_sec;
     }
-    timens_t v;
     int sign = timens_SGN(&v, t);
     if (sign == 0) {
         unthrow(ERANGE, 0);
@@ -486,15 +375,60 @@ timens_time(const timens_t *restrict t, enum TIME_UNIT id) {
     return sign*timens_to_times[id](&v);
 }
 
+timens_t *
+timens_clr(timens_t *v) {
+    return timens_CLR(v);
+}
+
 timens_t
 timens_pos(const timens_t *v) {
     return *v;
 }
 
 timens_t *
-timens_ineg(timens_t *restrict v, const timens_t *t) {
-    *v = timens_NEG(t);
-    return v;
+timens_ipos(timens_t *v, const timens_t *t) {
+    if (t == NULL) {
+        if (v == NULL) {
+            unthrow(EFAULT, NULL);
+        }
+        t = v;
+    }
+    if (!(timens_SEC_OK(t->tv_sec) && timens_NSEC_OK(t->tv_nsec))) {
+        unthrow(ERANGE, NULL);
+    }
+    return memmove(v, t, sizeof *v);
+}
+
+timens_t *
+timens_ineg(timens_t *v, const timens_t *t) {
+    // *v = timens_NEG(t);
+    // return v;
+    
+    timens_t x;
+    if (t == NULL) {
+        if (v == NULL) {
+            unthrow(EFAULT, NULL);
+        }
+        x = *v;
+    }
+    else {
+        x = *t;
+    }
+    if (x.tv_nsec == 0L) {
+        if (!timens_SEC_OK(x.tv_sec)) {
+            unthrow(ERANGE, NULL);
+        }
+        x.tv_sec = 0-x.tv_sec;
+    }
+    else {
+        if (!timens_SEC_OK(x.tv_sec)) {
+            unthrow(ERANGE, NULL);
+        }
+        x.tv_sec = (0-1)-x.tv_sec;
+        x.tv_nsec = BILLION-x.tv_nsec;
+    }
+    return memcpy(v, &x, sizeof x);
+    
 }
 
 timens_t
@@ -505,6 +439,35 @@ timens_neg(const timens_t *t) {
 timens_t
 timens_abs(const timens_t *t) {
     return (t->tv_sec < 0) ? timens_NEG(t): *t;
+}
+
+timens_t *
+timens_iabs(timens_t *v, const timens_t *t) {
+    if (t == NULL) {
+        if (v == NULL) {
+            unthrow(EFAULT, NULL);
+        }
+        t = v;
+    }
+    if (t->tv_nsec == 0L) {
+        if (t->tv_sec < 0) {
+            return timens_INIT(v, 0-t->tv_sec, 0L);
+        }
+        return timens_INIT(v, t->tv_sec, 0L);
+    }
+    if (!timens_NSEC_OK(t->tv_nsec)) {
+        unthrow(ERANGE, NULL);
+    }
+    if (t->tv_sec < 0) {
+        if (t->tv_sec < TIMENS_SEC_MIN) {
+            unthrow(ERANGE, NULL);
+        }
+        return timens_INIT(v, (0-1)-t->tv_sec, BILLION-t->tv_nsec);
+    }
+    if (t->tv_nsec > TIMENS_SEC_MAX) {
+        unthrow(ERANGE, NULL);
+    }
+    return memmove(v, t, sizeof *v);
 }
 
 ptrdiff_t
@@ -758,8 +721,8 @@ timens_round(const timens_t *t, ROUND_T mode) {
     return timens.round_ops[mode].timeround_mode(t);
 }
 
-timens_t *
-timens_add(timens_t *restrict v, const timens_t *a, const timens_t *b) {
+timens_t
+timens_add(const timens_t *a, const timens_t *b) {
     timens_t t = {
         .tv_sec  = a->tv_sec +b->tv_sec,
         .tv_nsec = a->tv_nsec+b->tv_nsec,
@@ -767,14 +730,11 @@ timens_add(timens_t *restrict v, const timens_t *a, const timens_t *b) {
     if (t.tv_nsec > TIMENS_NSEC_MAX) {
         t.tv_sec += (time_t) long_DIVMOD(&t.tv_nsec, t.tv_nsec, BILLION);
     }
-    if (!timens_SEC_OK(t.tv_sec)) {
-        unthrow(ERANGE, NULL);
-    }
-    return memcpy(v, &t, sizeof t);
+    return t;
 }
 
-timens_t *
-timens_sub(timens_t *restrict v, const timens_t *a, const timens_t *b) {
+timens_t 
+timens_sub(const timens_t *a, const timens_t *b) {
     timens_t t = {
         .tv_sec  = a->tv_sec-b->tv_sec,
         .tv_nsec = a->tv_nsec-b->tv_nsec,
@@ -782,29 +742,34 @@ timens_sub(timens_t *restrict v, const timens_t *a, const timens_t *b) {
     if (t.tv_nsec < 0L) {
         t.tv_sec += (time_t) long_DIVMOD(&t.tv_nsec, t.tv_nsec, BILLION);
     }
+    return t;
+}
+
+timens_t *
+timens_iadd(timens_t *v, const timens_t *a, const timens_t *b) {
+    timens_t t = timens_add(a, b);
     if (!timens_SEC_OK(t.tv_sec)) {
         unthrow(ERANGE, NULL);
     }
     return memcpy(v, &t, sizeof t);
 }
 
-static inline bool
-timens_MUL_TINY(timens_t *restrict v, const timens_t *restrict a, int b) {
-    switch (b) {
-        case (0+1): return memcpy(v, a, sizeof *v);
-        case (0*0): return memset(v, 0, sizeof *v);
-        case (0-1): return *v=timens_NEG(a), v;
+timens_t *
+timens_isub(timens_t *v, const timens_t *a, const timens_t *b) {
+    timens_t t = timens_sub(a, b);
+    if (!timens_SEC_OK(t.tv_sec)) {
+        unthrow(ERANGE, NULL);
     }
-    return false;
+    return memcpy(v, &t, sizeof t);
 }
 
 timens_t *
-timens_mul(timens_t *restrict v, const timens_t *a, int b) {
+timens_imul(timens_t *restrict v, const timens_t *a, int b) {
     imaxdiv_t p;
     intmax_t m;
     timens_t t;
     bool sign;
-    intmax_t targ = __LINE__;
+    /* intmax_t targ = __LINE__; */ 
     if (!a->tv_nsec) {
         if (!a->tv_sec) {
             return memset(v, 0, sizeof t);
@@ -812,9 +777,11 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
         if (a->tv_sec < 0) {
             if (a->tv_sec < TIMENS_SEC_MIN) {
                 range_error: {
-                    char buf[256];
+                    /* 
+                    char buf[256]; 
                     assert(timens_str(a, buf));
                     printf("[targ=%ji] <%s> × %d\n",targ, buf, b);
+                    */ 
                     unthrow(ERANGE, NULL);
                 }
             }
@@ -828,24 +795,27 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
                         return memcpy(v, &t, sizeof t);
                     }
                 }
+                t = timens_NEG(a);
                 b = 0-b;
-                t.tv_sec = 0-a->tv_sec;
                 if (t.tv_sec > TIMENS_SEC_MAX/b) {
-                    targ = __LINE__; goto range_error;
+                    /* targ = __LINE__; */
+                    goto range_error;
                 }
                 t.tv_sec *= b;
             }
             else {
-                t.tv_sec = 0-a->tv_nsec;
+                t = timens_NEG(a);
                 if (t.tv_sec > TIMENS_SEC_MAX/b) {
-                    targ = __LINE__; goto range_error;
+                    /* targ = __LINE__; */
+                    goto range_error;
                 }
-                t.tv_sec *= 0-b;
+                t.tv_sec = 0-(t.tv_sec*b);
             }
         }
         else {
             if (a->tv_sec > TIMENS_SEC_MAX) {
-                targ = __LINE__; goto range_error;
+                /* targ = __LINE__; */
+                goto range_error;
             }
             if (b < 2) {
                 switch (b) {
@@ -859,26 +829,29 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
                 }
                 t.tv_sec = a->tv_sec;
                 if ((t.tv_sec+1) > TIMENS_SEC_MAX/(0-b)) {
-                    targ = __LINE__; goto range_error;
+                    /* targ = __LINE__; */
+                    goto range_error;
                 }
                 t.tv_sec = t.tv_sec*b-1;
             }
             else {
                 if (a->tv_sec > TIMENS_SEC_MAX/b) {
-                    targ = __LINE__; goto range_error;
+                    /* targ = __LINE__; */
+                    goto range_error;
                 }
                 t.tv_sec = a->tv_sec*b;
             }
+            t.tv_nsec = 0L;
         }
-        t.tv_nsec = 0L;
         return memcpy(v, &t, sizeof t);
     }
     if (!timens_NSEC_OK(a->tv_nsec)) {
-        targ=__LINE__; goto range_error;
+        /* targ=__LINE__; */
+        goto range_error;
     }
     if (a->tv_sec < 0) {
         if (a->tv_sec < TIMENS_SEC_MIN) {
-            targ = __LINE__;
+            /* targ = __LINE__; */
             goto range_error;
         }
         switch (b) {
@@ -889,8 +862,7 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
                 return memcpy(v, &t, sizeof t);
             }
         }
-        t.tv_sec = 0-a->tv_sec;
-        t.tv_nsec = BILLION-a->tv_nsec;
+        t = timens_NEG(a);
         if (b < 0) {
             m = 0-(intmax_t) b;
             sign = false;
@@ -902,7 +874,8 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
     }
     else {
         if (a->tv_sec > TIMENS_SEC_MAX) {
-            targ=__LINE__; goto range_error;
+            /* targ = __LINE__; */ 
+            goto range_error;
         }
         switch (b) {
             case 0+1: return memcpy(v, a, sizeof t);
@@ -924,7 +897,8 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
         }
     }
     if (t.tv_sec > TIMENS_SEC_MAX/m) {
-        targ = __LINE__; goto range_error;
+        /*targ = __LINE__; */
+        goto range_error;
     }
     t.tv_sec = (time_t) (m*t.tv_sec);
     p = imaxdiv(m*t.tv_nsec, BILLION);
@@ -934,17 +908,87 @@ timens_mul(timens_t *restrict v, const timens_t *a, int b) {
         t = timens_NEG(&t);
     }
     if (!timens_SEC_OK(t.tv_sec)) {
-        targ = __LINE__; goto range_error;
+        /* targ = __LINE__; */
+        goto range_error;
     }
     return memcpy(v, &t, sizeof t);
 }
 
 timens_t *
 timens_fmul(timens_t *restrict v, const timens_t *a, double b) {
-    timens_t p;
-    timens_t q;
-    long double t = b;
-    int s;
+    long double x;
+    long double p;
+    long double q;
+    timens_t t;
+    bool sign;
+    if (!isfinite(b)) {
+        range_error: {
+            unthrow(ERANGE, NULL);
+        }
+    }
+    if (b < 0) {
+        if (a->tv_sec < 0) {
+            if (a->tv_sec < TIMENS_SEC_MIN) {
+                goto range_error;
+            }
+            t = timens_NEG(a);
+            sign = false;
+        }
+        else {
+            if (a->tv_sec > TIMENS_SEC_MAX) {
+                goto range_error;
+            }
+            sign = true;
+            t = *a;
+        }
+        x = 0.L-b;
+    }
+    else {
+        if (a->tv_sec < 0) {
+            if (a->tv_sec < TIMENS_SEC_MIN) {
+                goto range_error;
+            }
+            t = timens_NEG(a);
+            sign = true;
+        }
+        else {
+            if (a->tv_sec > TIMENS_SEC_MAX) {
+                goto range_error;
+            }
+            sign = false;
+            t = *a;
+        }
+        x = b;
+    }
+    p = x*t.tv_sec;
+    q = x*t.tv_nsec;
+    p+= q/BILLION;
+    t.tv_nsec = (long) fmodl(q, BILLION);
+    if (p > TIMENS_SEC_MAX) {
+        goto range_error;
+    }
+    t.tv_sec = (time_t) p;
+    if (sign) {
+        t = timens_NEG(&t);
+    }
+    return memcpy(v, &t, sizeof t);
+    /*
+    x = 2.5
+    t = {24, 567'890'000}
+    p = 2.5*24 
+    q = 2.5*567'890'000 = 1'419'725'000.0
+    
+    
+    timens_t m = {
+        
+    }
+    if ()
+    if (a->tv_nsec == 0) {
+        if (a->tv_sec == 0) {
+            return memset(v, 0, sizeof *v);
+        }
+        
+    }
     if (a->tv_sec < 0) {
         p = timens_NEG(a);
         s = 1;
@@ -970,69 +1014,44 @@ timens_fmul(timens_t *restrict v, const timens_t *a, double b) {
         *v = p;
     }
     return v;
+    */
 }
 
-long
+time_t
 timens_div(timens_t *restrict mod, const timens_t *a, const timens_t *b) {
-    timens_t m;
-    timens_t o[2];
-    /*
-    (+)÷(+) = (+)%(+) +5/+2 = +2 % +1
-    
-    
-    */
-#if defined(__SIZEOF_INT128__)
-
-    if (a->tv_sec < 0) {
-        o[0] = timens_NEG(a);
-        a = o;
-        if (b->tv_sec < 0) {
-            o[1] = timens_NEG(b);   // (-)÷(-) = (+)%(-) -5/-2 = +2 % -1
-            b = o+1;                // (-)÷(+) = (-)%(+) -5/+2 = -3 % +1 
+    if ((a->tv_sec < 0) || (b->tv_sec < 0)) {
+        unthrow(EINVAL, 0);
+    }
+    if (a->tv_sec < b->tv_sec) {
+        tiny_dividend: {
+            (void) memcpy(mod, a, sizeof *mod);
+            return 0;
         }
     }
-    else {
-        if (b->tv_sec < 0) {
-            o[1] = timens_NEG(b);
-            b = o+1;                //(+)÷(-) = (-)%(-) +5/-2 = -3 % -1 
+    if (a->tv_sec == b->tv_sec) {
+        if (a->tv_nsec <= b->tv_nsec) {
+            if (a->tv_nsec < b->tv_nsec) {
+                goto tiny_dividend;
+            }
+            (void) memset(mod, 0, sizeof *mod);
+            return 1;
         }
     }
-    int128_t n = (int128_t) a->tv_sec*BILLION+a->tv_nsec;
-    int128_t d = (int128_t) b->tv_sec*BILLION+b->tv_nsec;
+    int128_t n = BILLION*(int128_t) a->tv_sec+a->tv_nsec;
+    int128_t d = BILLION*(int128_t) b->tv_sec+b->tv_nsec;
+    int128_t q = n/d;
+    if (q > TIMENS_SEC_MAX) {
+        unthrow(ERANGE, 0);
+    }
     int128_t r = n%d;
-    union {
-        int128_t x;
-        long l;
-    } q = {.x=n/d};
-    m.tv_sec    = (time_t) (r/BILLION);
-    m.tv_nsec   = (long)   (r%BILLION);
-    if (a == o+0) {
-        if (b == o+1) {
-            if (q.x > LONG_MAX) {
-                the_flowjob: {
-                    unthrow(ERANGE, 0L);
-                }
-            }
-            *mod = timens_NEG(&m);
-            return (long) q.x;
-        }
-        negative_quotient: {
-            if (q.x > LONG_MAX) {
-                goto the_flowjob;
-            }
-        }
-        *mod = m;
-        return 0L-(long) q.x;
-    }
-    if (b == o+1) {
-        *mod = timens_neg(&m);
-        goto negative_quotient;
-    }
-    if (q.x > LONG_MAX) {
-        goto the_flowjob;
-    }
-    return *mod=m, (long) q.x;
-#endif
+    (void) memcpy(
+        mod,
+        &(timens_t){
+            .tv_sec = (time_t) (r/BILLION),
+            .tv_nsec = (long) (r%BILLION),
+        },
+        sizeof *mod);
+    return (time_t) q;
 }
 
 timens_t *
@@ -1106,13 +1125,316 @@ timens_ftime(const timens_t *restrict t) {
     }
 }
 
-struct timens_locals {
-    struct {
-        char s[128];
-    } dtostr;
+timens_t
+timens_now(void) {
+    timens_t t;
+#   if _POSIX_TIMERS
+    if (clock_gettime(CLOCK_REALTIME, &t)) {
+        abort();
+    }
+#   endif
+    return t;
+}
+
+struct tm *
+timens_localtime(timens_t *t) {
+    time_t i = t == NULL ? time(0) : t->tv_sec;
+    return memcpy(
+        &locals.localtime, 
+        localtime(&i), 
+        sizeof locals.localtime);
+}
+
+timens_t
+timens_mktime(struct untm *t) {
+    return (timens_t){
+        .tv_sec = mktime(&(struct tm){
+            .tm_year = t->tm_year,
+            .tm_yday = t->tm_yday,
+            .tm_mon  = t->tm_mon,
+            .tm_mday = t->tm_mday,
+            .tm_hour = t->tm_hour,
+            .tm_min  = t->tm_min,
+            .tm_sec  = t->tm_sec,
+            .tm_isdst= t->tm_isdst,
+        }),
+        .tv_nsec = t->tm_nsec,
+    };
+}
+
+time_t
+unmktime(struct tm *t) {
+    return (time_t) (
+        (t->tm_sec)
+    +   (t->tm_hour*3600)
+    +   (t->tm_yday*86400)
+    +   (t->tm_year-70)*31536000
+    +   ((t->tm_year-69)/4)*86400
+    -   ((t->tm_year-1)/100)*86400
+    +   ((t->tm_year+299)/400)*86400);
+}
+
+ptrdiff_t
+unstrrepr(const char *restrict src, FILE *restrict dst) {
+    if (dst == NULL) {
+        dst = stdout;
+    }
+    ptrdiff_t len = 1;
+    int n = 0;
+    if (fputc('"', dst) < 0) {
+        return -1;
+    }
+    while (*src) {
+        return 0;
+    }
+}
+
+#define DICT_OP_SUCCESS ((hash_t) 0)
+#define DICT_OP_FAILURE ((hash_t) 0-1)
+
+hash_t 
+unstrhash(const char *restrict);
+
+struct unitem;
+
+typedef struct unitem {
+    const char     *k;
+    const void     *v;
+    hash_t          i;
+    struct unitem  *next;
+} unitem;
+
+typedef struct {
+    uint8_t     bits;
+    hash_t      used;
+    hash_t      size;
+    unitem    **staq;
+    unitem     *imap[1];
+} undict;
+
+typedef union ptrview {
+    void        *addr;
+    uintptr_t   uint;
+    char        *c;
+    wchar_t     *w;
+    uint8_t     *u8;
+    uint16_t    *u16;
+    uint32_t    *u32;
+    uint64_t    *u64;
+    uintmax_t   *umax;
+    size_t      *usz;
+    int8_t      *s8;
+    int16_t     *s16;
+    int32_t     *s32;
+    int64_t     *s64;
+    intmax_t    *smax;
+    ssize_t     *ssz;
+    float       *flt;
+    double      *dbl;
+} ptrview_t;
+
+typedef struct dict_item {
+    const char *key;
+    void       *val;
+    struct dict_item *next;
+} DictItem;
+
+typedef struct {
+    size_t              size;
+    timens_t            vers;
+    hash_t              nkey;
+    hash_t              used;
+    int                 type;
+    uint8_t             lsh;
+    uint8_t             rsh;
+    pthread_rwlock_t    lock;
+    DictItem **         map;
+    DictItem  *         data;
+} Dict;
+
+Dict *  Dict_new    (hash_t, int);
+void    Dict_destroy(Dict *restrict);
+void *  Dict_get    (Dict *restrict, const char *);
+hash_t  Dict_put    (Dict *restrict, const char *, void *);
+void *  Dict_hget   (Dict *restrict, const char *, hash_t);
+hash_t  Dict_hput   (Dict *restrict, const char *, void *, hash_t);
+
+void Dict_api_init(void) {
+    if (pthread_spin_init(&Dict_api_lock, PTHREAD_PROCESS_PRIVATE)) {
+        perror(__func__), exit(EXIT_FAILURE);
+    }
+}
+
+static  
+uint8_t NBIT[256] = {
+    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 };
 
-_Thread_local struct timens_locals locals;
+hash_t
+unstrhash(const char *restrict str) {
+    size_t i = 0;
+    union {
+        uint64_t v;
+        struct {
+            uint16_t a;
+            uint32_t b;
+        };
+    } hash = {.a=1, .b=0};
+    for (; str[i]; i++) {
+        hash.a += str[i];
+        hash.b += hash.a;
+    }
+    if (!hash.v) {
+        return 0;
+    }
+    hash.v ^= hash.v>>12;
+    hash.v ^= hash.v<<25;
+    hash.v ^= hash.v>>27;
+    return    hash.v>>33;
+}
+
+static inline uint8_t
+hashbits(hash_t i) {
+    if (i <  0x00000004) return 003;
+    if (i <= 0x000000FF) return 001+NBIT[i];
+    if (i <= 0x0000FFFF) return 011+NBIT[i>>010];
+    if (i <= 0x00FFFFFF) return 021+NBIT[i>>020];
+    else                 return 031+NBIT[i>>030];
+}
+
+Dict *
+Dict_new(hash_t nkey, int type) {
+    Dict dict = {
+        .nkey=nkey, 
+        .type=type,
+        .lsh=hashbits(nkey),
+    };
+    dict.rsh            = 31-dict.lsh;
+    dict.size           = 1<<dict.lsh;
+    const size_t ptrs   = sizeof(DictItem*)*dict.size;
+    const size_t data   = sizeof(DictItem)*nkey;
+    const size_t xtra   = data+ptrs;
+    const size_t need   = sizeof(Dict)+xtra;
+    ptrview_t buf       = {malloc(need)};
+    Dict *self          = buf.addr;
+    if (!self) {
+        return NULL;
+    }
+    if (pthread_rwlock_init(&self->lock, NULL)) {
+        free(self);
+        return NULL;
+    }
+    if (memcpy(self, &dict, sizeof *self) == NULL) {
+        fail: {
+            Dict_destroy(self);
+            return NULL;
+        }
+    }
+    if (memset(buf.addr=self+1, 0, xtra) == NULL) {
+        goto fail;
+    }
+    self->map   = buf.addr;
+    self->data  = (void *)(buf.c+ptrs);
+    return self;
+}
+
+void 
+Dict_destroy(Dict *d) {
+    (void) pthread_rwlock_destroy(&d->lock);
+    (void) memset(d, 0, sizeof *d);
+    free(d);
+}
+
+void *
+Dict_hget(Dict *restrict d, const char *k, hash_t hash) {
+    assert(errno == 0);
+    if (hash == DICT_OP_FAILURE) {
+        return NULL;
+    }
+    if (pthread_rwlock_rdlock(&d->lock)) {
+        switch (errno) {
+            case EDEADLK:   return NULL;
+            case EAGAIN:    return NULL;
+            default:        abort();
+        }
+    }
+    void *v = NULL;
+    DictItem *i = d->map[hash>>d->rsh];
+    for (; i; i=i->next) {
+        printf("i->key = \"%s\"
+        if (!strcmp(k, i->key)) {
+            v = i->val;
+            break;
+        }
+    }
+    if (pthread_rwlock_unlock(&d->lock)) {
+        return NULL;
+    }
+    return v;
+}
+
+void *
+Dict_get(Dict *restrict d, const char *k) {
+    return Dict_hget(d, k, unstrhash(k));
+}
+
+static inline bool
+Dict_FULL(Dict *d) {
+    return d->used >= d->size;
+}
+
+hash_t
+Dict_hput(Dict *restrict d, const char *k , void *v, hash_t hash) {
+    if (pthread_rwlock_wrlock(&d->lock)) {
+        return DICT_OP_FAILURE;
+    }
+    hash_t slot = hash>>d->rsh;
+    DictItem *i = d->map[slot];
+    for (; i; i=i->next) {
+        if (!strcmp(i->key, k)) {
+            goto insertion_success;
+        }
+    }
+    if (Dict_FULL(d)) {
+        slot = DICT_OP_FAILURE;
+    }
+    else {
+        i = (d->used++)+d->data;
+        i->next = NULL;
+        i->key  = k;
+        insertion_success: {
+            i->val = v;
+        }
+    }
+    if (pthread_rwlock_unlock(&d->lock)) {
+        return DICT_OP_FAILURE;
+    }
+    return slot;
+}
+
+hash_t
+Dict_put(Dict *restrict d, const char *k, void *v) {
+    return Dict_hput(d, k, v, unstrhash(k));
+}
+
+
+/*
+    tm_sec 
++   tm_min*60
++ tm_hour*3600
++ tm_yday*86400
++ (tm_year-70)
+*   31536000 
++ ((tm_year-69)/4)*86400
+- ((tm_year-1)/100)*86400
++ ((tm_year+299)/400)*86400 
 
 static char *
 dtostr(double n) {
@@ -1126,661 +1448,267 @@ dtostr(double n) {
     }
     return locals.dtostr.s;
 }
+*/
+const char *bool_repr(bool v) {
+    return v ? "true" : "false";
+}
 
-typedef struct {
-    const timens_t *a;
-    const timens_t *b;
-    ROUND_T mode;
-} round_test;
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <dirent.h>
 
-typedef struct {
-    timens_t a;
-    timens_t b;
-    timens_t x;
-    timens_t v;
-} math_test;
-
-typedef struct {
-    timens_t a;
-    int b;
-    timens_t x;
-} mul_test;
-
-static const char *round_names[] = {
-    [ROUND_CEIL] = "timens_ceil",
-    [ROUND_DOWN] = "timens_floor",
-    [ROUND_NEAR] = "timens_near",
-    [ROUND_ZERO] = "timens_trunc",
-};
-
-static void 
-timens_TEST_MUL(FILE *dst, div_t *CTR) {
-    if (dst == NULL) {
-        dst = stdout;
+void unopened(DIR *it, const char *why) {
+    if (it != NULL) {
+        closedir(it);
     }
-    char lhs[256], res[256], req[256];
+    perror(why);
+    exit(EXIT_FAILURE);
+}
 
-    timens_t v;
-    int p_1 = 1;
-    int p_2 = 2;
-    int n_1 = 0-p_1;
-    int n_2 = 0-p_2;
-    int b_1 = BILLION-1;
-    int b_2 = BILLION-2;
-    mul_test *test, tests[] = {
-        [0x00]={{0, 0}, 000, {000,  000}},
-        [0x01]={{0, 0}, 001, {000,  000}},
-        [0x02]={{0, 0}, 002, {000,  000}},
-        [0x03]={{0, 0}, 0-1, {000,  000}},
-        [0x04]={{0, 0}, 0-2, {000,  000}},
-        [0x05]={{0, 1}, 000, {000,  000}},
-        [0x06]={{0, 1}, 001, {000,  001}},
-        [0x07]={{0, 1}, 002, {000,  002}},
-        [0x08]={{0, 1}, 0-1, {0-1,  b_1}},
-        [0x09]={{0, 1}, 0-2, {0-1,  b_2}},
-        [0x0a]={{1, 0}, 000, {000,  000}},
-        [0x0b]={{1, 0}, 001, {001,  000}},
-        [0x0c]={{1, 0}, 002, {002,  000}},
-        [0x0d]={{1, 0}, 0-1, {0-1,  000}},
-        [0x0e]={{1, 0}, 0-2, {0-3,  000}},
-        [0x0f]={{1, 1}, 000, {000,  000}},
-        [0x10]={{1, 1}, 0+1, {0+1,  001}},
-        [0x11]={{1, 1}, 0+2, {0+2,  002}},
-        [0x12]={{1, 1}, 0-1, {0-2,  b_1}},
-        [0x13]={{1, 1}, 0-2, {0-3,  b_2}},
-    };
-    for (int i=0; i < arraylen(tests); i++) {
-        test = tests+i;
-        assert(timens_mul(&v, &test->a, test->b));
-        if (timens_eq(&v, &test->x)) {
-            CTR->quot++;
+_Thread_local char joined_path[FILENAME_MAX];
+
+const char *
+path_join(const char *restrict path, const char *restrict name) {
+    if (0 > snprintf(joined_path, FILENAME_MAX, "%s/%s", path, name)) {
+        return NULL;
+    }
+    return joined_path;
+}
+
+void showdir(const char *path) {
+    assert(errno == 0);
+    DIR *it = opendir(path);
+    if (it != NULL) {
+        goto pass;
+    }
+    fail: {
+        switch (errno) {
+            case EACCES: unopened(it, "permission denied");
+            case EBADF:   unopened(it, "bad fd");
+            case EMFILE:  unopened(it, "proc open FD limit exceeded");
+            case ENFILE:  unopened(it, "system open FD limit exceeded");
+            case ENOENT:  unopened(it, "dir doesn't exist");
+            case ENOTDIR: unopened(it, "not a directory path");
+            case ENOMEM:  unopened(it, "out of memory");
         }
-        else {
-            assert(0 < timens_str(&test->a, lhs));
-            assert(0 < timens_str(&test->x, req));
-            assert(0 < timens_str(&v, res));
-            fprintf(
-                dst,
-                "[0x%02x]<%s>×%d => <%s> (expected <%s>)\n",
-                i, lhs, test->b, res, req);
+    }
+    pass: {}
+    /*
+    DT_BLK      This is a block device. 
+    DT_CHR      This is a character device.
+    DT_DIR      This is a directory. 
+    DT_FIFO     This is a named pipe (FIFO). 
+    DT_LNK      This is a symbolic link. 
+    DT_REG      This is a regular file.
+    DT_SOCK     This is a UNIX domain socket. 
+    DT_UNKNOWN  The file
+    */
+    int i = 0;
+    for (struct dirent *e=NULL; ; i++) {
+        assert(i < 1000);
+        e = readdir(it);
+        if (e == NULL) {
+            if (errno != 0) {
+                goto fail;
+            }
+            break;
         }
-        CTR->rem++;
-    }
-}
+        const char *p = path_join(path, e->d_name);
+        const char *t;
+        switch (e->d_type) {
+            case DT_CHR:
+            case DT_BLK: {
+                t = "[c]";
+                break;
+            }
+            case DT_SOCK: {
+                t = "[s]";
+                break;
+            }
+            case DT_FIFO: {
+                t = "[p]";
+                break;
+            }
+            case DT_LNK: {
+                t = " # ";
+                break;
+            }
+            case DT_DIR: {
+                t = "[+]";
+                break;
+            }
+            case DT_REG: {
+                t = "   ";
+                break;
+            }
+            default: {
+                t = "[?]";
+            }
+        }
 
-static bool 
-timens_MATH_TEST(bool k, int i, math_test *test, FILE *f, const char *s) {
-    if (!k) {
-        char lhs[256], rhs[256], ans[256], req[256];
-        assert(0 < timens_str(&test->a, lhs));
-        assert(0 < timens_str(&test->b, rhs));
-        assert(0 < timens_str(&test->v, ans));
-        assert(0 < timens_str(&test->x, req));
-        assert(0 < fprintf(f, s, i, lhs, rhs, ans, req));
-    }
-    return k;
-}
-
-static void
-timens_ARITHMETIC(FILE *dst, div_t *CTR) {
-    if (dst == NULL) {
-        dst = stdout;
-    }
-    const long Z = TIMENS_NSEC_MAX;
-    time_t pos = 1;
-    time_t neg = 0-pos;
-    bool k;
-
-    math_test 
-        *test, 
-        add_tests[] = {
-            [0x00]={ {0*pos,0}, {0*pos,0}, {0, 0}},
-            [0x01]={ {0*pos,1}, {0*pos,0}, {0, 1}},
-            [0x02]={ {1*pos,0}, {0*pos,0}, {1, 0}},
-            [0x03]={ {1*pos,1}, {0*pos,0}, {1, 1}},
-            [0x04]={ {0*pos,0}, {0*pos,1}, {0, 1}},
-            [0x05]={ {0*pos,0}, {1*pos,0}, {1, 0}},
-            [0x06]={ {0*pos,0}, {1*pos,1}, {1, 1}},
-            [0x07]={ {0*pos,1}, {0*pos,1}, {0, 2}},
-            [0x08]={ {0*pos,1}, {0*pos,Z}, {1, 0}},
-            [0x09]={ {1*pos,Z}, {0*pos,Z}, {2, Z-1}},
-            [0x0a]={ {1*neg,Z}, {0*pos,1}, {0, 0}},
-            [0x0b]={ {1*neg,0}, {1*pos,0}, {0, 0}},
-            [0x0c]={ {1*pos,1}, {1*pos,Z}, {3, 0}},
-            [0x0d]={ {1*neg,1}, {0*pos,Z}, {0, 0}},
-        },
-        sub_tests[] = {
-            [0x00]={{0*pos,0}, {0*pos,0}, {0, 0}},
-            [0x01]={{1*pos,0}, {0*pos,0}, {1, 0}},
-        };
-    for (int i=0; i < arraylen(add_tests); i++) {
-        test = add_tests+i;
-        assert(timens_add(&test->v, &test->a, &test->b));
-        CTR->rem++;
-        CTR->quot+=timens_MATH_TEST(
-            k=timens_eq(&test->v, &test->x),
-            i, test, dst,
-            "[0x%02x] <%s>+<%s> => <%s> (expected <%s>)\n");
-    }
-    for (int i=0; i < arraylen(sub_tests); i++) {
-        test = sub_tests+i;
-        assert(timens_sub(&test->v, &test->a, &test->b));
-        CTR->rem++;
-        CTR->quot += timens_MATH_TEST(
-            timens_eq(&test->v, &test->x),
-            i, test, dst,
-            "[0x%02x] <%s>-<%s> => <%s> (expected <%s>)\n");
-    }
-}
-
-static bool
-timens_round_test(FILE *out, round_test *test) {
-    static char a_str[512], b_str[512], v_str[512];
-    *a_str=0, *b_str=0, *v_str=0;
-    timens_t v = timens_round(test->a, test->mode);
-    if (timens_ne(test->b, &v)) {
-        assert(timens_str(test->a, a_str) > 0);
-        assert(timens_str(test->b, b_str) > 0);
-        assert(timens_str(&v, v_str) > 0);
-        assert(0<fprintf(out, "%s", round_names[test->mode]));
-        assert(0<fprintf(out, "(<%.*s>)", (int)sizeof a_str, a_str));
-        assert(0<fprintf(out, " => <%.*s>", (int) sizeof v_str, v_str));
-        assert(0<fprintf(
-            out, 
-            " (expected <%.*s>)\n",
-            (int) sizeof b_str, b_str));
-        return false;
-    }
-    else {
-        return true;
-    }
-}
-
-static void 
-timens_TEST_TIMEROUND(FILE *out, div_t *CTR) {
-    if (out == NULL) {
-        out = stdout;
-    }
-    timens_t a;
-    timens_t b;
-    timens_t x;
-    char buf[512] = {0};
-    const long 
-        t_00=0L,
-        t_01=1L,
-        t_25=BILLION/4,
-        t_50=t_25*2,
-        t_49=t_50-1,
-        t_51=t_50+1,
-        t_75=t_25*3,
-        t_99=BILLION-1;
-    const timens_t 
-        p_10_00={0+10, t_00},
-        p_10_01={0+10, t_01},
-        p_10_49={0+10, t_49},
-        p_10_50={0+10, t_50},
-        p_10_51={0+10, t_51+1},
-        p_10_99={0+10, t_99},
-        p_11_00={0+11, t_00},
+        printf("%s \"%s\"\n",t,p);
         
-        n_11_00={0-11, t_00},
-        n_10_99={0-11, t_01},
-        n_10_51={0-11, t_49},
-        n_10_50={0-11, t_50},
-        n_10_49={0-11, t_51},
-        n_10_01={0-11, t_99},
-        n_10_00={0-10, t_00};
+    }
+    closedir(it);
     
-    round_test s[] = {
-        {&p_10_00, &p_10_00, ROUND_ZERO},
-        {&p_10_01, &p_10_00, ROUND_ZERO},
-        {&p_10_49, &p_10_00, ROUND_ZERO},
-        {&p_10_50, &p_10_00, ROUND_ZERO},
-        {&p_10_51, &p_10_00, ROUND_ZERO},
-        {&p_10_99, &p_10_00, ROUND_ZERO},
-        {&p_11_00, &p_11_00, ROUND_ZERO},
-        
-        {&p_10_00, &p_10_00, ROUND_NEAR},
-        {&p_10_01, &p_10_00, ROUND_NEAR},
-        {&p_10_49, &p_10_00, ROUND_NEAR},
-        {&p_10_50, &p_11_00, ROUND_NEAR},
-        {&p_10_51, &p_11_00, ROUND_NEAR},
-        {&p_10_99, &p_11_00, ROUND_NEAR},
-        {&p_11_00, &p_11_00, ROUND_NEAR},
-        
-        {&p_10_00, &p_10_00, ROUND_DOWN},
-        {&p_10_01, &p_10_00, ROUND_DOWN},
-        {&p_10_49, &p_10_00, ROUND_DOWN},
-        {&p_10_50, &p_10_00, ROUND_DOWN},
-        {&p_10_51, &p_10_00, ROUND_DOWN},
-        {&p_10_99, &p_10_00, ROUND_DOWN},
-        {&p_11_00, &p_11_00, ROUND_DOWN},
-        
-        {&p_10_00, &p_10_00, ROUND_CEIL},
-        {&p_10_01, &p_11_00, ROUND_CEIL},
-        {&p_10_49, &p_11_00, ROUND_CEIL},
-        {&p_10_50, &p_11_00, ROUND_CEIL},
-        {&p_10_51, &p_11_00, ROUND_CEIL},
-        {&p_10_99, &p_11_00, ROUND_CEIL},
-        {&p_11_00, &p_11_00, ROUND_CEIL},
-
-        {&n_10_00, &n_10_00, ROUND_ZERO},
-        {&n_10_01, &n_10_00, ROUND_ZERO},
-        {&n_10_49, &n_10_00, ROUND_ZERO},
-        {&n_10_50, &n_10_00, ROUND_ZERO},
-        {&n_10_51, &n_10_00, ROUND_ZERO},
-        {&n_10_99, &n_10_00, ROUND_ZERO},
-        {&n_11_00, &n_11_00, ROUND_ZERO},
-
-        {&n_10_00, &n_10_00, ROUND_DOWN},
-        {&n_10_01, &n_11_00, ROUND_DOWN},
-        {&n_10_49, &n_11_00, ROUND_DOWN},
-        {&n_10_50, &n_11_00, ROUND_DOWN},
-        {&n_10_51, &n_11_00, ROUND_DOWN},
-        {&n_10_99, &n_11_00, ROUND_DOWN},
-        {&n_11_00, &n_11_00, ROUND_DOWN},
-
-        {&n_10_00, &n_10_00, ROUND_CEIL},
-        {&n_10_01, &n_10_00, ROUND_CEIL},
-        {&n_10_49, &n_10_00, ROUND_CEIL},
-        {&n_10_50, &n_10_00, ROUND_CEIL},
-        {&n_10_51, &n_10_00, ROUND_CEIL},
-        {&n_10_99, &n_10_00, ROUND_CEIL},
-        {&n_11_00, &n_11_00, ROUND_CEIL},
-
-        {&n_10_00, &n_10_00, ROUND_NEAR},
-        {&n_10_01, &n_10_00, ROUND_NEAR},
-        {&n_10_49, &n_10_00, ROUND_NEAR},
-        {&n_10_50, &n_11_00, ROUND_NEAR},
-        {&n_10_51, &n_11_00, ROUND_NEAR},
-        {&n_10_99, &n_11_00, ROUND_NEAR},
-        {&n_11_00, &n_11_00, ROUND_NEAR},
-    };
-    for (int i=0; i < arraylen(s); i++) {
-        CTR->quot += timens_round_test(out, s+i);
-        CTR->rem++;
-    }
-}
-
-static void
-timens_TEST_TIME(FILE *dst, div_t *CTR) {
-    if (dst == NULL) {
-        dst = stdout;
-    }
-    assert(!errno);
-    const int 
-        p=1, 
-        n=0-p,
-        t0=0, 
-        t1=1,
-        t9=BILLION-1;
-    
-    struct time_test {
-        timens_t a;
-        enum TIME_UNIT t;
-        time_t x;
-    } 
-    tests[] = {
-        [0x00]={{p*59, t0}, MINUTES, 0},
-        [0x01]={{p*59, t9}, MINUTES, 0},
-        [0x02]={{p*60, t1}, MINUTES, 1},
-        [0x03]={{p*3600}, MINUTES, 60},
-        [0x04]={{p*86400}, MINUTES, 24*60},
-        [0x05]={{p*86400}, HOURS, 24},
-        [0x06]={{p*86400*7}, DAYS, 7},
-        [0x07]={{p*86400*6, t9}, DAYS, 6},
-        [0x08]={{1,15}, NANOSECONDS, BILLION+15},
-        [0x09]={{0, 9}, PICOSECONDS, 9000},
-        [0x0a]={timens_NEG(&(timens_t){0,9}), PICOSECONDS, 0-9000},
-        [0x0b]={{0, 0000}, MICROSECONDS, MILLION*0+0},
-        [0x0c]={{0, 1000}, MICROSECONDS, MILLION*0+1},
-        [0x0d]={{1, 0000}, MICROSECONDS, MILLION*1+0},
-        [0x0e]={{1, 2000}, MICROSECONDS, MILLION*1+2},
-    };
-    for (int i=0; i < arraylen(tests); i++) {
-        struct time_test *test = tests+i;
-        time_t v = timens_time(&test->a, test->t);
-        assert(!errno);
-        if (v == test->x) {
-            CTR->quot++;
-        }
-        else {
-            char str[256];
-            assert(timens_str(&test->a, str)>0);
-            assert(0<fprintf(
-                dst,
-                "[%x] timens_time(<%s>, %s) => "
-                "%ji (expected %ji)\n",
-                i, str, time_unit_GET_NAME(test->t),
-                (intmax_t) v, (intmax_t)test->x));
-        }
-        CTR->rem++;
-    }
-}
-
-static void 
-timens_TEST_FTIMES(FILE * out, div_t *CTR) {
-    assert(!errno);
-    if (out == NULL) {
-        out = stdout;
-    }
-    size_t len;
-    char buf[512] = {0};
-    char tmp[512];
-    struct {
-        const char *repr;
-        bool (*call)(const timens_t *, const timens_t *);
-    }   
-    ml[] = {
-        [CMP_LT]={u8"<", timens_lt},
-        [CMP_LE]={u8"≤", timens_le},
-        [CMP_EQ]={u8"=", timens_eq},
-        [CMP_NE]={u8"≠", timens_ne},
-        [CMP_GT]={u8">", timens_gt},
-        [CMP_GE]={u8"≥", timens_ge},
-    };
-    
-    const struct {
-        int         test;
-        int         unit;
-        time_t      time;
-        timens_t    x;
-    }   
-    testq[] = {
-        // test          unit   time                     x
-        {CMP_EQ, PICOSECONDS,   INT64_C(1000000001000), {1, 1}},
-        {CMP_EQ, NANOSECONDS,   INT64_C(1000000001),    {1, 1}},
-        {CMP_EQ, MICROSECONDS,  INT64_C(1000001),       {1, 1000}},
-        {CMP_EQ, MILLISECONDS,  INT64_C(1001),          {1, MILLION}},
-        {CMP_EQ, CENTISECONDS,  INT64_C(101),           {1, TEN*MILLION}},
-        {CMP_EQ, DECISECONDS,   INT64_C(11),            {1, HUNDRED*MILLION}},
-        {CMP_EQ, DECASECONDS,   INT64_C(1),             {TEN}},
-        {CMP_EQ, HECTOSECONDS,  INT64_C(1),             {HUNDRED}},
-        {CMP_EQ, KILOSECONDS,   INT64_C(1),             {THOUSAND}},
-        {CMP_EQ, MINUTES,       INT64_C(1),             {60}},
-        {CMP_EQ, HOURS,         INT64_C(1),             {3600}},
-        {CMP_EQ, DAYS,          INT64_C(1),             {86400}},
-        {CMP_EQ, YEARS,         INT64_C(2), {63113904}},
-        {CMP_EQ, SECONDS, 0-INT64_C(2000), {0-2000}}
-        
-    };
-
-    len = arraylen(testq);
-    for (size_t i=0; i < len; i++) {
-        CTR->rem++;
-        timens_t j = {0};
-        const struct time_unit *unit;
-        assert(timens_units_INIT(&unit, testq[i].unit) != NULL);
-        assert(timens_fromtime(  &j,    testq[i].time, testq[i].unit));
-        if (ml[testq[i].test].call(&j, &testq[i].x)) {
-            CTR->quot++;
-            continue;
-        }
-        assert(timens_str(&j, buf) > 0);
-        assert(timens_str(&testq[i].x, tmp) > 0);
-        fprintf(
-            out,
-            "[0x%zx]: timens_fromtime(&j, %jd, %s) => %s\n"
-            "    (expected %s)\n",
-            i, 
-            (intmax_t) testq[i].time, 
-            unit->name,
-            buf,
-            tmp);
-        exit(EXIT_FAILURE);
-    }
-    const struct ftimes_test {
-        int         g;
-        double      d;
-        timens_t    x;
-    } 
-    tests[] = {
-        {9, 0+0.000000000, {0}},
-        {9, 0+0.000000001, timens.nanosecond.pos},
-        {9, 0-0.000000001, timens.nanosecond.neg},
-        {9, 0+0.000000012, {0-0,        12}},
-        {9, 0+0.000000123, {0+0,       123}},
-        {9, 0+0.000123000, {0-0,    123000}},
-        {9, 0+0.123000000, {0+0, 123000000}},
-        {9, 0-0.000000001, {0-1, BILLION-1}},
-        {9, 0-0.000000012, {0-1, BILLION-12}},
-        {9, 0-0.000000123, {0-1, BILLION-123}},
-        {9, 0-0.000123000, {0-1, BILLION-123000}},
-        {9, 0-0.123000000, {0-1, BILLION-123000000}},
-        {9, 8388607.999999999, {8388607, 999999999}},
-        {9, 8388607.999999998, {8388607, 999999998}},
-        {9, 8388607.999999997, {8388607, 999999997}},
-    };
-    len = sizeof tests/sizeof *tests;
-    for (size_t i=0; i < len; i++) {
-        CTR->rem++;
-        timens_t old_t = tests[i].x;
-        double   old_d = tests[i].d;
-        assert(timens_str(&old_t, buf) > 0);
-        double   new_d = timens_ftime(&old_t);
-        timens_t new_t = {0};
-        if (errno) {
-            fprintf(
-                out,
-                "test[%zu]:\n"
-                "    timens_ftime(<%s>) threw %i\n",
-                i, buf, errno), exit(EXIT_FAILURE);
-        } 
-        if (new_d != old_d) {
-            fprintf(
-                out,
-                "test[%zu]:\n"
-                "   expected %.9f from timens_ftime(%s)\n"
-                "   not %.9f",
-                i, old_d, buf, new_d), exit(EXIT_FAILURE);
-        }
-        assert(timens_fromftime(&new_t, new_d) != NULL);
-        if (timens_eq(&new_t, &old_t)) {
-            CTR->quot++;
-            continue;
-        }
-        (void) timens_str(&new_t, tmp);
-        fprintf(
-            out,
-            "test[%zu]:\n"
-            "   btimens_fromftime(&new_t, %.9f) => <%s>\n"
-            "   expected <%s>\n",
-            i,  new_d, tmp, buf);
-        exit(EXIT_FAILURE);
-    }
-}
- 
-static void
-timens_TEST_CMP(FILE *dst, div_t *CTR) {
-    char lhs[512]={0}, rhs[512]={0};
-    if (dst == NULL) {
-        dst = stdout;
-    }
-    const int X = CMP_NE;
-    const timens_t 
-        *pos_s = &timens.second.pos,
-        *neg_s = &timens.second.neg,
-        *pos_m = &timens.minute.pos,
-        *neg_m = &timens.minute.neg,
-        *pos_0 = &(timens_t){0},
-        *uno_s = &(timens_t){1}
-        ;
-    struct {
-        const char *op;
-        bool (*call)(const timens_t *, const timens_t *);
-    } 
-    ml[] = {
-        [CMP_LT]={u8"<", timens_lt},
-        [CMP_LE]={u8"≤", timens_le},
-        [CMP_EQ]={u8"=", timens_eq},
-        [CMP_NE]={u8"≠", timens_ne},
-        [CMP_GT]={u8">", timens_gt},
-        [CMP_GE]={u8"≥", timens_ge},
-    };
-    
-    struct {
-        const timens_t *a;
-        int f;
-        const timens_t *b;
-        bool x;
-    } 
-    ops[] = {
-        [0x00] = {neg_s, CMP_LT, pos_s, 1},
-        [0x01] = {neg_s, CMP_LE, pos_s, 1},
-        [0x02] = {neg_s, CMP_EQ, pos_s, 0},
-        [0x03] = {neg_s, CMP_NE, pos_s, 1},
-        [0x04] = {neg_s, CMP_GT, pos_s, 0},
-        [0x05] = {neg_s, CMP_GE, pos_s, 0},
-     
-        [0x06] = {neg_s, CMP_LT, neg_s, 0},
-        [0x07] = {neg_s, CMP_LE, neg_s, 1},
-        [0x08] = {neg_s, CMP_EQ, neg_s, 1},
-        [0x09] = {neg_s, CMP_NE, neg_s, 0},
-        [0x0a] = {neg_s, CMP_GT, neg_s, 0},
-        [0x0b] = {neg_s, CMP_GE, neg_s, 1},
-        
-        [0x0c] = {pos_s, CMP_LT, pos_s, 0},
-        [0x0d] = {pos_s, CMP_LE, pos_s, 1},
-        [0x0e] = {pos_s, CMP_EQ, pos_s, 1},
-        [0x0f] = {pos_s, CMP_NE, pos_s, 0},
-        [0x10] = {pos_s,  CMP_GT, pos_s, 0},
-        [0x11] = {pos_s,  CMP_GE, pos_s, 1},
-        
-        [0x12] = {pos_s,  CMP_LT, pos_m, 1},
-        [0x13] = {pos_s,  CMP_LE, pos_m, 1},
-        [0x14] = {pos_s,  CMP_EQ, pos_m, 0},
-        [0x15] = {pos_s,  CMP_NE, pos_m, 1},
-        [0x16] = {pos_s,  CMP_GT, pos_m, 0},
-        [0x17] = {pos_s,  CMP_GE, pos_m, 0},
-        
-        [0x18] = {pos_s,  CMP_LT, uno_s, 0},
-        [0x19] = {pos_s,  CMP_LE, uno_s, 1},
-        [0x1a] = {pos_s,  CMP_EQ, uno_s, 1},
-        [0x1b] = {pos_s,  CMP_NE, uno_s, 0},
-        [0x1c] = {pos_s,  CMP_GT, uno_s, 0},
-        [0x1d] = {pos_s,  CMP_GE, uno_s, 1},
-
-        [0x1e] = {&timens.nanosecond.pos, X,&(timens_t){0-0,ONE}},
-        [0x1f] = {&timens.nanosecond.neg, X,&(timens_t){0-1,BILLION-ONE}},
-
-        [0x20] = {&timens.microsecond.pos,X,&(timens_t){0-0,THOUSAND}},
-        [0x21] = {&timens.microsecond.neg,X,&(timens_t){0-1,BILLION-THOUSAND}},
-    
-        [0x22] = {&timens.millisecond.pos,X,&(timens_t){0-0,MILLION}},
-        [0x23] = {&timens.millisecond.neg,X,&(timens_t){0-1,BILLION-MILLION}},
-
-        [0x24] = {&timens.centisecond.pos,X,&(timens_t){0-0,10000000}},
-        [0x25] = {&timens.centisecond.neg,X,&(timens_t){0-1,990000000}},
-
-        [0x26] = {&timens.decisecond.pos, X,&(timens_t){0-0,100000000}},
-        [0x27] = {&timens.decisecond.neg, X,&(timens_t){0-1,900000000}},
-
-        [0x28] = {&timens.decasecond.pos, X,&(timens_t){TEN}},
-        [0x29] = {&timens.decasecond.neg, X,&(timens_t){0-TEN}},
-
-        [0x2a] = {&timens.hectosecond.pos,X,&(timens_t){HUNDRED}},
-        [0x2b] = {&timens.hectosecond.neg,X,&(timens_t){0-HUNDRED}},
-
-        [0x2c] = {&timens.kilosecond.pos, X,&(timens_t){THOUSAND}},
-        [0x2d] = {&timens.kilosecond.neg, X,&(timens_t){0-THOUSAND}},
-
-        [0x2e] = {&timens.megasecond.pos, X,&(timens_t){MILLION}},
-        [0x2f] = {&timens.megasecond.neg, X,&(timens_t){0-MILLION}},
-
-        [0x30] = {&timens.gigasecond.pos, X,&(timens_t){BILLION}},
-        [0x31] = {&timens.gigasecond.neg, X,&(timens_t){0-BILLION}},
-
-        [0x32] = {&timens.petasecond.pos, X,&(timens_t){QUADRILLION}},
-        [0x33] = {&timens.petasecond.neg, X,&(timens_t){0-QUADRILLION}},
-
-        [0x34] = {&timens.terasecond.pos, X,&(timens_t){TRILLION}},
-        [0x35] = {&timens.terasecond.neg, X,&(timens_t){0-TRILLION}},
-
-        [0x36] = {&timens.exasecond.pos,  X,&(timens_t){QUINTILLION}},
-        [0x37] = {&timens.exasecond.neg,  X,&(timens_t){0-QUINTILLION}},
-
-        {0},
-    };
-
-    for (int i=0; i < (sizeof ops/sizeof *ops) ; i++) {
-        const timens_t *a = ops[i].a;
-        const timens_t *b = ops[i].b;
-        int op = ops[i].f;
-        bool r = ml[op].call(a, b);
-        if (r == ops[i].x) {
-            CTR->quot++;
-        }
-        else {
-            (void) timens_str(a, lhs);
-            (void) timens_str(b, rhs);
-            (void) assert(0 < fprintf(
-                dst,
-                "test[0x%x]:\n"
-                "    {%s} %s {%s>} => %d\n"
-                "    (expected %d)\n",
-                i,
-                lhs, ml[op].op, rhs, r, 
-                ops[i].x));
-        }
-        CTR->rem++;
-    }
-}
-
-static void
-timens_TEST_SIGNEDNESS(FILE *dst, div_t *CTR) {
-    if (dst == NULL) {
-        dst = stdout;
-    }
-    char a_str[256]={0}, b_str[256], v_str[256];
-    const long 
-        l_000=0,
-        l_001=1,
-        l_999=BILLION-1;
-    const time_t 
-        p_000=0,
-        p_001=1,
-        n_001=0-1,
-        n_002=0-2;
-    struct negatest {
-        timens_t a;
-        timens_t b;
-    } tests[] = {
-        [0]={{p_000, l_000}, {p_000, l_000}},
-        [1]={{p_000, l_001}, {n_001, l_999}},
-        [2]={{p_001, l_000}, {n_001, l_000}},
-        [3]={{p_001, l_001}, {n_002, l_999}},
-        [4]={{n_001, l_999}, {p_000, l_001}},
-        [5]={{n_001, l_000}, {p_001, l_000}},
-        [6]={{n_002, l_999}, {p_001, l_001}},
-    };
-    for (int i=0; i < arraylen(tests); i++) {
-        struct negatest *test = tests+i;
-        timens_t v;
-        assert(timens_ineg(&v, &test->a) == &v);
-        if (timens_ne(&v, &test->b)) {
-            assert(timens_str(&test->a, a_str) > 0);
-            assert(timens_str(&test->b, b_str) > 0);
-            assert(timens_str(      &v, v_str) > 0);
-            assert(fprintf(
-                dst,
-                "[%i] timens_ineg(&v, &<%s>) => <%s>, not <%s>\n",
-                i,
-                a_str, b_str, v_str) > 0);
-        }
-        else {
-            timens_t j = timens_neg(&v);
-            assert(timens_eq(&j, &test->a));
-            CTR->quot++;
-        }
-        CTR->rem++;
-    }
 }
 
 int main(void) {
+    char str[512] = {0};
     errno = 0;
-    
-    char lhs[512] = {0};
+    const char *dir = "/sdcard/.dewclaw";
+    if (0) showdir(dir);
+    if (1) Dict_api_init();
+
+    Dict *dick = Dict_new(15, 0);
+    int vals[] = {
+        1, 22, 333, 4444, 55555, 666666, 7777777
+    };
+    assert(Dict_put(dick, "mon", vals+0) != DICT_OP_FAILURE);
+    int *val = Dict_get(dick, "mon");
+    printf(
+        "errno = %d\n"
+        "val = %p\n",
+        errno, val
+        );
+    /*
+    const char *keys[] = {
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun",
+        0,
+    };
+    int vals[] = {1, 22, 333, 4444, 55555, 666666, 7777777};
+    for (int i=0; i < 7; i++) {
+        assert(Dict_put(dick, keys[i], &vals[i]) != DICT_OP_FAILURE);
+    }
+    for (int i=0; i < 7; ++i) {
+        int   *v = Dict_get(dick, keys[i]);
+        assert(v);
+        printf("dick[\"%s\"] => %i\n", keys[i], *v);
+    }
+    Dict_destroy(dick);
+    */
+    timens_t now = timens_now();
+    //printf("_POSIX_TIMERS = %s\n", bool_repr(_POSIX_TIMERS));
+//    printf("_POSIX_C_SOURCE = %ld\n", _POSIX_C_SOURCE);
+    //printf("now = %jd.%ld\n", (intmax_t) now.tv_sec, now.tv_nsec);
+    struct tm *c = timens_localtime(&now);
+    printf("mktime(...) => %jd\n", (intmax_t) unmktime(c));
+    printf(
+        "yday[2011-11-29] => %i\n"
+        "yday[1988-07-17] => %i\n",
+        date_YDAY(2011, 11, 29),
+        date_YDAY(1988, 7,  17));
+    printf(
+        "(struct tm){"
+        ".tm_yday=%i, .tm_year=%i, .tm_mon=%i, "
+        ".tm_mday=%i, .tm_hour=%i, .tm_min=%i, .tm_sec=%i, "
+        ".tm_wday=%i, .tm_isdst=%i}\n",
+        c->tm_yday, c->tm_year, c->tm_mon,
+        c->tm_mday, c->tm_hour, c->tm_min, c->tm_sec,
+        c->tm_wday, c->tm_isdst);
+
+}
+#if 0
+#include <semaphore.h>
+#include <pthread.h>
+
+sem_t loque;
+int tasks_completed = 0;
+int task_ids[] = {69, 777};
+
+static void untoss_impl(const char *f, intmax_t lineno) {
+    char buf[512] = {0};
+    (void) snprintf(
+        buf,
+        sizeof buf,
+        "In func \"%s\" in line %ji\n",
+        f,
+        lineno);
+    perror(buf);
+    exit(EXIT_FAILURE);
+}
+
+#define untoss() untoss_impl(__func__, __LINE__)
+/*
+int 
+pthread_create(
+    pthread_t *restrict thread, 
+    const pthread_attr_t *restrict attr, 
+    void *(*start_routine)(void *),
+    void *restrict arg);
+*/
+
+void *
+task(void *arg) {
+    timens_t timeout;
+    bool destroy_after;
+    if(!timens_fromtime(&timeout, 750, MILLISECONDS)) {
+        untoss();
+    }
+    if (sem_timedwait(&loque, &timeout)) {
+        untoss();
+    }
+    int *task_id = arg;
+    printf("done with task # %d\n", *task_id);
+    destroy_after = ++tasks_completed >= 2;
+    if (sem_post(&loque)) {
+        untoss();
+    }
+    if (destroy_after) {
+        if (sem_destroy(&loque)) {
+            untoss();
+        }
+    }
+    return NULL;
+}
+
+void prog(void) {
+    if (sem_init(&loque, 0, 1)) {
+        untoss();
+    }
+    pthread_t task_a;
+    pthread_t task_b;
+
+    if (pthread_create(&task_a, 0, task, task_ids+0)) {
+        untoss();
+    }
+    if (pthread_create(&task_b, 0, task, task_ids+1)) {
+        untoss();
+    }
+}
+
+#include "test/untime.h"
+
+
+int main(void) {
+    errno = 0;
+    printf("FLT_MANT_DIG = %d\n", FLT_MANT_DIG);
+    prog();
+    timens_t req, rem = {0};
+    if (!timens_fromftime(&req, 1.5)){
+        untoss();
+    }
+    nanosleep(&req, &rem);
     char rhs[512] = {0};
+    if (timens_str(&rem, rhs) < 0) {
+        untoss();
+    }
+    printf("rem = <%s>\n", rhs);
+    
+    /*
+    (void) 0 ? printf(
+        "fmod(1419725000.0, %'d) => %f\n",
+        BILLION,
+        fmod(1419725000.0, BILLION)):0;
+        
+    */
+    char lhs[512] = {0};
     double fuq = timens_ftime(&timens.nanosecond.neg);
     if (0) {printf(
         "errno = %d\n"
@@ -1804,16 +1732,21 @@ int main(void) {
     
     
     //true && 1 < 60 || 1 > 60 ? false : 0 < 0
+    /*
     volatile int a = 1;
     volatile int b = 60;
     volatile _Bool t = 1;
     volatile _Bool f = 0;
+    */
     div_t CTR = {0};
     if (1) {
         timens_ARITHMETIC(0, &CTR);
     }
     if (1) {
         timens_TEST_MUL(0, &CTR);
+    }
+    if (1) {
+        timens_TEST_DIV(0, &CTR);
     }
     if (1) {
         timens_TEST_TIME(0, &CTR);
@@ -1929,7 +1862,13 @@ int main(void) {
 /*
 
 os.system("clang kelvin.c -o untest -lm -I /sdcard/Python/unsys")
-
+os.system(
+    "clang "
+    "/sdcard/Python/unsys/untime.c -o untest "
+    "-lm "
+    "-I /sdcard/Python/unsys"
+    "--shared"
+    )
 2,0,5
 9
 
@@ -1937,5 +1876,15 @@ os.system("clang kelvin.c -o untest -lm -I /sdcard/Python/unsys")
 2,2
   0
   2,2
-  
+os.system(
+  "clang "
+"/sdcard/Python/unsys/untime.c "
+"-shared "
+"-lpython3.10 "
+"-lm "
+"-I ../usr/include/python3.10 "
+"-I /sdcard/Python/unsys "
+"-o ../usr/lib/python3.10/site-packages/unsys.cpython-310.so"
+)
 */
+#endif

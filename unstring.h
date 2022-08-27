@@ -107,6 +107,13 @@ bool unstrne(const char *, const char *);
 bool unstrgt(const char *, const char *);
 bool unstrge(const char *, const char *);
 
+bool unstrnlt(const char *, const char *, size_t);
+bool unstrnle(const char *, const char *, size_t);
+bool unstrneq(const char *, const char *, size_t);
+bool unstrnne(const char *, const char *, size_t);
+bool unstrngt(const char *, const char *, size_t);
+bool unstrnge(const char *, const char *, size_t);
+
 int unmkbtrans(untrans_t *, char [256], const unmem_t *);
 int unmkwtrans(untrans_t *, unmem_t *, const unmem_t *);
 

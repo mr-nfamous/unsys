@@ -1,759 +1,735 @@
-/*  |*************************************************************************
+
+/*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳ */
+
+
+/*
+vars().update(
+    SRC="/sdcard/Python/unsys/unsys.c",
+    PYLIB="lpython3.10",
+    DST="../usr/lib/python3.10/site-packages/unsys.cpython-310.so",
+    INCLUDES="-I ../usr/include/python3.10 -I /sdcard/Python/unsys"
+    )
 "clang "
-"/sdcard/Python/unsys/unsys.c "
 "-shared "
 "-lpython3.10 "
-"-D UNSYS_BIG_ENDIAN=0 "
 "-I ../usr/include/python3.10 "
 "-I /sdcard/Python/unsys "
-"-o ../usr/lib/python3.10/site-packages/unsys.cpython-310.so"
+
+os.system(f"clang {SRC} -o {DST} -shared -{PYLIB} {INCLUDES}")
 
 */
-
 #define PY_SSIZE_T_CLEAN
+
 #include "Python.h"
 #include "structmember.h"
-#include "dtypedef.h"
 
-#define fastsubclass(obj) ((obj)->ob_type->tp_flags&0xFF000000UL)
-#define seterror(exc, msg) PyErr_SetString(PyExc_##exc, msg)
-  
-#define TypeError(msg) seterror(TypeError, msg)
-#define IndexError(msg) seterror(IndexError, msg)
-#define SystemError(msg) seterror(SystemError, msg)
-#define ValueError(msg) seterror(ValueError, msg)
+#include <stdbool.h>
+#include <wchar.h>
+#include <uchar.h>
 
-typedef union charview {
-    uint8_t     b[1];
-    uint8_t     u;
-    int8_t      s;
-} CharView;
+#include "unuchar.h"
 
-typedef union shortview {
-    uint8_t     b[2];
-    uint16_t    h[1];
-    uint16_t    u;
-    int16_t     s;
-    CharView    cv[2];
-} ShortView;
+#define un_tp_subclass(ob) (Py_TYPE(ob)->tp_flags&0xFF000000UL)
+#define UN_IS_LONG(ob)  (Py_TPFLAGS_LONG_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_LIST(ob)  (Py_TPFLAGS_LIST_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_TUPLE(ob) (Py_TPFLAGS_TUPLE_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_BYTES(ob) (Py_TPFLAGS_BYTES_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_STR(ob)   (Py_TPFLAGS_UNICODE_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_DICT(ob)  (Py_TPFLAGS_DICT_SUBCLASS&un_tp_subclass(ob))
+#define UN_IS_TYPE(ob)  (Py_TPFLAGS_TYPE_SUBCLASS&un_tp_subclass(ob))
 
-typedef union intview {
-    uint8_t     b[4];
-    uint16_t    h[2];
-    uint32_t    i[1];
-    uint32_t    u;
-    int32_t     s;
-    CharView    cv[4];
-    ShortView   hv[2];
-} IntView;
 
-typedef union longview {
-    uint8_t     b [8];
-    CharView    cv[8];
-    uint16_t    h [4];
-    ShortView   hv[4];
-    uint32_t    i [2];
-    IntView     iv[2];
-    uint64_t    q [1];
-    uint64_t    u;
-    int64_t     s;
-    uintmax_t   x;
-} LongView;
+static PyObject *unsys_fsdecode(PyObject *, PyObject *);
 
-typedef union floatview {
-    uint8_t     b[4];
-    float       f;
-    uint32_t    u;
-    int32_t     s;
-} FloatView;
+typedef union pyref pyref_t;
 
-typedef union doubleview {
-    uint8_t     b[8];
-    float       d;
-    uint64_t    u;
-    int64_t     s;
-} DoubleView;
 
-typedef union pyalias {
-    void            *as_any;
-    uintptr_t       addr;
-    PyObject        *as_object;
-    PyObject       **as_objects;
-    PyLongObject    *as_long;
-    PyVarObject     *as_varobject;
-    PyTupleObject   *as_tuple;
-    PyListObject    *as_list;
-    PyBytesObject   *as_bytes;
-} pyalias_t;
-
-typedef PyObject *Py;
-
-typedef PyObject *(*pydecoder)(const ptrview_t, const pyindex_t);
 
 typedef struct {
-    ssize_t         ob_refcnt;
-    PyTypeObject   *ob_type;
-    Py              dt_name;
-    dtype_t         dt_type;
-} DtypeObject;
-
-typedef uint64_t hash_t;
-
-static  
-uint8_t NBIT[256] = {0, 1, 2, 2};
-
-hash_t
-string_hash(const void *ptr, size_t *restrict len) {
-    const uint8_t *restrict str = ptr;
-    size_t i = 0;
+    PyObject_HEAD
     union {
-        uint64_t v;
-        struct {
-            uint16_t a;
-            uint32_t b;
-        };
-    } hash = {.a=1, .b=0};
-    for (; str[i]; i++) {
-        hash.a += str[i];
-        hash.b += hash.a;
-    }
-    if (len)
-        len[0] = i;
-    if (hash.v) {
-        hash.v ^= hash.v>>12;
-        hash.v ^= hash.v<<25;
-        hash.v ^= hash.v>>27;
-    }
-    return hash.v>>33;
-}
-
-static void
-init_nbit(void) {
-    memset(NBIT+0x04, 3, 0x04);
-    memset(NBIT+0x08, 4, 0x08);
-    memset(NBIT+0x10, 5, 0x10);
-    memset(NBIT+0x20, 6, 0x20);
-    memset(NBIT+0x40, 7, 0x40);
-    memset(NBIT+0x80, 8, 0x80);
-}
-
-static inline uint8_t
-hashbits(hash_t i) {
-    if (i <  0x00000004) return 003;
-    if (i <= 0x000000FF) return 001+NBIT[i];
-    if (i <= 0x0000FFFF) return 011+NBIT[i>>010];
-    if (i <= 0x00FFFFFF) return 021+NBIT[i>>020];
-    else                 return 031+NBIT[i>>030];
-}
-
-static inline int
-pytoumax(pyalias_t arg, uintmax_t *restrict val) {
-    *val = PyLong_AsUnsignedLongLongMask(arg.as_object);
-    return PyErr_Occurred() ? -1 : 0;
-}
-
-static Py 
-unsys_identity(Py module, Py arg) { 
-    Py_INCREF(arg);
-    return arg;
-}
-
-static Py
-char_decode(const ptrview_t buf, const pyindex_t i) {
-    return Py_BuildValue("c", (int)(buf.u8[i.u]));
-}
-
-static Py
-wchar_decode(const ptrview_t buf, const pyindex_t i) {
-    return Py_BuildValue("C", (int)(buf.u32[i.u]));
-}
-
-static Py
-uchar_decode(const ptrview_t buf, const pyindex_t i) {
-    return PyLong_FromUnsignedLong((unsigned long)buf.u8[i.u]);
-}
-
-
-static Py
-ushort_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(short) == 0)
-        return PyLong_FromUnsignedLong(buf.u16[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(short);
-    const ShortView r = {{b[0], b[1]}};
-    return PyLong_FromUnsignedLong(r.u);
-}
-
-
-static Py
-uint_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(unsigned) == 0)
-        return PyLong_FromUnsignedLong(buf.u32[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(unsigned);
-    const IntView r = {{b[0], b[1], b[2], b[3]}};
-    return PyLong_FromUnsignedLong(r.u);
-}
-
-
-static Py
-int_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(int) == 0)
-        return PyLong_FromLong(buf.s32[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(int);
-    const IntView r = {{b[0], b[1], b[2], b[3]}};
-    return PyLong_FromLong(r.s);
-}
-
-#if ULLONG_MAX > ULONG_MAX
-
-static Py 
-    (*long_decode) (const ptrview_t, const pyindex_t) = int_decode,
-    (*ulong_decode)(const ptrview_t, const pyindex_t) = uint_decode;
-#define long_decode int_decode
-#define ulong_decode uint_decode
-
-static Py
-llong_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(long long) == 0)
-        return PyLong_FromLongLong(buf.s64[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(long long);
-    const LongView r = {{b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]}};
-    return PyLong_FromLongLong(r.s);
-}
-
-static Py
-ullong_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(long long) == 0)
-        return PyLong_FromUnsignedLongLong(buf.u64[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(long long);
-    const LongView r = {{b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]}};
-    return PyLong_FromUnsignedLongLong(r.u);
-}
-
-#else
-
-static Py
-long_decode(const ptrview_t buf, const pyindex_t i) {
-    Py_RETURN_NONE;
-}
-
-static Py
-ulong_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(long) == 0)
-        return PyLong_FromUnsignedLong(buf.u64[i.u]);
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(long);
-    const LongView r = {{b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]}};
-    return PyLong_FromUnsignedLong(r.u);
-}
-
-static Py 
-    (*llong_decode) (const ptrview_t, const pyindex_t) = long_decode,
-    (*ullong_decode)(const ptrview_t, const pyindex_t) = ulong_decode;
-#define llong_decode long_decode
-#define ullong_decode ulong_decode
-#endif
-
-static Py
-schar_decode(const ptrview_t buf, const pyindex_t i) {
-    return PyLong_FromLong(buf.s8[i.u]);
-}
-
-static Py
-short_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(short) == 0) 
-        return PyLong_FromLong((long)(buf.s16[i.u]));
-    const uint8_t *restrict b =  buf.u8+i.u*sizeof(short);
-    const ShortView r = {{b[0], b[1]}};
-    return PyLong_FromLong(r.s);
-}
-
-static Py
-bool_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.bint[i.u])
-        Py_RETURN_TRUE;
-    else 
-        Py_RETURN_FALSE;
-}
-
-static Py
-float_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(float) == 0)
-        return PyFloat_FromDouble((double)(buf.flt[i.u]));
-    const uint8_t *restrict f = buf.u8+sizeof(float)*i.u;
-    const FloatView v = {{f[0], f[1], f[2], f[3]}};
-    return PyFloat_FromDouble((double) v.f);
-}
-
-static Py
-double_decode(const ptrview_t buf, const pyindex_t i) {
-    if (buf.uint%sizeof(double) == 0)
-        return PyFloat_FromDouble(buf.dbl[i.u]);
-    const uint8_t *restrict f = buf.u8+sizeof(double)*i.u;
-    const DoubleView v = {{f[0], f[1], f[2], f[3]}};
-    return PyFloat_FromDouble(v.d);
-}
-
-static Py
-unsys_testbit(Py mod, Py unused) {
-    union bx {
-        struct {
-            unsigned char 
-            bit0: 1,
-            bit1: 1,
-            bit2: 1,
-            bit3: 1,
-            bit4: 1,
-            bit5: 1,
-            bit6: 1,
-            b7: 1;
-        } bf;
-        unsigned char b;
-        struct {
-            unsigned char 
-            :   1,
-            b1: 1;
-        };
+        unsigned char   data[sizeof(char)];
+        char            cval;
+        unsigned char   uval;
+        signed   char   sval;
     };
-    union bx a = {.bf = {.b7=1}};
-    union bx b = {.b = 0xff};
-    union bx c = {.b1 = 1};
-    return Py_BuildValue(
-        "[[i,i],[i,i],[i,i]]",
-        (int)(a.b),     (int)(a.bf.b7), 
-        (int)(b.b),     (int)(b.b1),
-        (int)(c.b),     (int)(c.b1)
-        // [[128, 1], [255, 1], [2, 1]]
-        
-   );
-    
-}
+} Char_t;
 
-static pydecoder UNSYS_DECODERS[256] = {
-    [UNSYS_CHAR]    = char_decode,
-    [UNSYS_WCHAR]   = wchar_decode,
-    [UNSYS_FLOAT]   = float_decode,
-    [UNSYS_DOUBLE]  = double_decode,   
-    [UNSYS_BOOL]    = bool_decode,
-    [UNSYS_UCHAR]   = uchar_decode,
-    [UNSYS_USHORT]  = ushort_decode,
-    [UNSYS_UINT]    = uint_decode,
-    [UNSYS_ULONG]   = ulong_decode,
-    [UNSYS_ULLONG]  = ullong_decode,
-    [UNSYS_SCHAR]   = schar_decode,
-    [UNSYS_SHORT]   = short_decode,
-    [UNSYS_INT]     = int_decode,
-    [UNSYS_LONG]    = long_decode,
-    [UNSYS_LLONG]   = llong_decode,
+typedef struct {
+    PyObject_HEAD 
+    union {
+        unsigned char  data[sizeof(short)];
+        signed   short sval;
+        unsigned short uval;
+    };
+} Short_t;
+
+typedef struct {
+    PyObject_HEAD
+    union {
+        unsigned char data[sizeof(int)];
+        unsigned  int uval;
+        signed    int sval;
+    };
+} Int_t;
+
+typedef struct {
+    PyObject_HEAD
+    union {
+        unsigned char data[sizeof(long)];
+        unsigned long uval;
+        signed   long sval;
+    };
+} Long_t;
+
+typedef struct {
+    PyObject_HEAD
+    union {
+        unsigned char data[sizeof(long long)];
+        unsigned long long uval;
+        signed   long long sval;
+    };
+} LLong_t;
+
+union pyref {
+    void *any, *as_any;
+    PyObject        *as_obj;
+    PyVarObject     *as_var;
+    PyLongObject    *as_long;
+    PyListObject    *as_list;
+    PyTupleObject   *as_tuple;
+    PyBytesObject   *as_bytes;
+    PyDictObject    *as_dict;
+    PyUnicodeObject *as_unicode;
+    PyASCIIObject   *as_ascii;
+    PyTypeObject    *as_type;
+    Char_t          *as_unchar;
+    Short_t         *as_unshort;
+    Int_t           *as_unint;
+    Long_t          *as_unlong;
+    LLong_t         *as_unllong;
 };
 
-static const uint8_t 
-UNSYS_BASICSIZE[256] = {
-    [UNSYS_VOID]    = 1,
-    [UNSYS_ADDR]    = (uint8_t) sizeof(size_t),
-    [UNSYS_BOOL]    = (uint8_t) sizeof(_Bool),
-    [UNSYS_CHAR]    = (uint8_t) sizeof(char),
-    [UNSYS_WCHAR]   = (uint8_t) sizeof(wchar_t),
-    [UNSYS_FLOAT]   = (uint8_t) sizeof(float),
-    [UNSYS_DOUBLE]  = (uint8_t) sizeof(double), 
-    [UNSYS_UCHAR]   = (uint8_t) sizeof(unsigned char),
-    [UNSYS_USHORT]  = (uint8_t) sizeof(unsigned short int),
-    [UNSYS_UINT]    = (uint8_t) sizeof(unsigned int),
-    [UNSYS_ULONG]   = (uint8_t) sizeof(unsigned long int),
-    [UNSYS_ULLONG]  = (uint8_t) sizeof(unsigned long long int),
-    [UNSYS_SCHAR]   = (uint8_t) sizeof(signed char),
-    [UNSYS_SHORT]   = (uint8_t) sizeof(signed short int),
-    [UNSYS_INT]     = (uint8_t) sizeof(signed int),
-    [UNSYS_LONG]    = (uint8_t) sizeof(signed long int),
-    [UNSYS_LLONG]   = (uint8_t) sizeof(signed long long int),
-};
-
-static const uint8_t
-UNSYS_BITMASK_MAX[256] = {
-    [UNSYS_BOOL]    = 8,
-    [UNSYS_SCHAR]   = 8,
-    [UNSYS_UCHAR]   = 8,
-    [UNSYS_SHORT]   = 16,
-    [UNSYS_USHORT]  = 16,
-    [UNSYS_INT]     = 32,
-    [UNSYS_UINT]    = 32,
-};
-
-static wint_t
-pywcs_to_wint_t(Py src) {
-    if (PyUnicode_GET_LENGTH(src) != 1) {
-        TypeError("expected a single unicode character");
-        return -1;
-    }
-    switch (PyUnicode_KIND(src)) {
-        case PyUnicode_1BYTE_KIND:
-            return (wint_t) PyUnicode_1BYTE_DATA(src)[0];
-        case PyUnicode_2BYTE_KIND:
-            return (wint_t) PyUnicode_2BYTE_DATA(src)[0];
-        case PyUnicode_4BYTE_KIND:
-            return (wint_t) PyUnicode_4BYTE_DATA(src)[0];
-    }
-    if (!PyErr_Occurred()) 
-        SystemError("invalid 'kind' field of PyUnicodeObject");
-    return -1;
-}
-
-static wint_t
-pychar_to_wint_t(Py src) {
-    if (PyBytes_GET_SIZE(src) != 1) {
-        TypeError("expected a single character bytes object");
-        return -1;
-    }
-    return (wint_t) PyBytes_AS_STRING(src)[0];
-}
-
-static Py 
-unsys_decode(Py mod, Py args) {
+struct unsys {
     /*
-    (buf, 'T')
-    (buf, 'T', pos)
-    (buf, 'T', pos, dt_length)
-    (buf, 'T', pos, dt_bitshift, dt_bitmask) 
-    */
-    Py*seq;
-    Py res = NULL;
-    Py_buffer buf;
-    pydecoder get;
-    pyalias_t arg = {args};
-    pyalias_t fmt;
-    pyindex_t off;
-    pyindex_t end;
-    unsigned type;
-
-    if (!PyTuple_Check(args)) {
-        TypeError("a tuple is required");
-        return NULL;
-    }
-
-    if (arg.as_varobject->ob_size < 2) {
-        TypeError("a tuple of at least 2 objects is required");
-        return NULL;
-    }
-
-    seq = arg.as_tuple->ob_item;
-    fmt.as_object = seq[0];
-
-    if (PyObject_GetBuffer(seq[1], &buf, PyBUF_SIMPLE) == -1)
-        return NULL;
-
-    if (arg.as_varobject->ob_size == 2) {
-        off.s = 0;
-        goto the_beginning;
-    }
+    Of the many different scalar types, "only" the following 
+    are actually implemented as a Python type:
     
+        C type              C struct      Py module
+        name                field         attribute   typecode 
+        ————————————————————————————————————————————
+        char                py_char       char_t      'c' 
+        wint_t              py_wint       wint_t      'C'
+        char16_t            py_char16     char16_t    'u'
+        char32_t            py_char32     char32_t    'U'
+        bool                py_bool       bool_t      'y'
+        signed char         py_schar      schar_t     'b'
+        unsigned char       py_uchar      uchar_t     'B'
+        short               py_short      short_t     'h'
+        unsigned short      py_ushort     ushort_t    'H'
+        int                 py_int        int_t       'i'
+        unsigned int        py_uint       uint_t      'I'
+        long                py_long       long_t      'l'
+        unsigned long       py_ulong      ulong_t     'L'
+        long long           py_llong      llong_t     'q'
+        unsigned long long  py_ullong     ullong_t    'Q'
+        float               py_flt        flt_t       'f'
+        double              py_dbl        dbl_t       'd'
+        long double         py_ldbl       ldbl_t      'D'
+        size_t              py_size       size_t      'z'
+        ptrdiff_t           py_ptrdiff    ptrdiff_t   't'
+        void *              py_void       void_p      'x'
 
-    if (PyErr_Occurred())
-        goto the_end;
+    Other builtin types, e.g. intmax_t or uintptr_t, are simply 
+    aliases for the lowest ranked type from the previous list 
+    with the same attributes. I.e. if INTMAX_MAX == LONG_MAX 
+    as well as LLONG_MAX, intmax_t is based on long instead of 
+    long long, even if the implementation (for some odd reason) 
+    defines intmax_t as a typedef of long long. 
+    
+    When used in arithmetic expressions, unsys scalars behave
+    identically to the corresponding C types. E.g. integer 
+    promotions are applied, common type determination is made,
+    then the result is computed. Python int, when used as an 
+    operand, is considered to have a rank higher than any C int 
+    but less than any C float. Python floats and unsys.dbl_t 
+    are indistinguishable.
+    
+    +|y|b|B|h|H|i|I|l|L|q|Q|o|f|d|D
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    y i i i i i i I|l L q Q o f d D
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    b i i i i i i I|l L q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    h i i i i i i I|l L q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    i i i i i i i I|l L q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    I I I I I I I I|l L q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    l l l l l l l l|l L q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    q q q q q q q q|q q q Q o f d D 
+    —|—|—|—|—|—|—|—|—|—|—|—|—|—|—|—
+    f f f f f f f f|f f f f f f d D 
+    
+    */
+    //              char      char *
+    PyTypeObject *py_wint,   *py_wint_p;
+    PyTypeObject *py_char,   *py_char_p; 
+    PyTypeObject *py_char16, *py_char16_p;
+    PyTypeObject *py_char32, *py_char32_p;
+    PyTypeObject *py_bool,   *py_bool_p;
+    PyTypeObject *py_schar,  *py_schar_p;
+    PyTypeObject *py_uchar,  *py_uchar_p;
+    PyTypeObject *py_short,  *py_short_p;
+    PyTypeObject *py_ushort, *py_ushort_p;
+    PyTypeObject *py_int,    *py_int_p;
+    PyTypeObject *py_uint,   *py_uint_p;
+    PyTypeObject *py_long,   *py_long_p;
+    PyTypeObject *py_ulong,  *py_ulong_p;
+    PyTypeObject *py_llong,  *py_llong_p;
+    PyTypeObject *py_ullong, *py_ullong_p;
+    PyTypeObject *py_flt,    *py_flt_p;
+    PyTypeObject *py_dbl,    *py_dbl_p;
+    PyTypeObject *py_ldbl,   *py_ldbl_p;
+    PyTypeObject *py_ptrdiff,*py_ptrdiff_p;
+    PyTypeObject *py_size,   *py_size_p;
+    PyTypeObject             *py_void_p;
+    PyTypeObject *py_timens, *py_timens_p;
+    PyTypeObject *py_stat,   *py_stat_p;
+    PyTypeObject *py_file,   *py_file_p;
+    PyTypeObject *py_dir,    *py_dir_p;
+    PyTypeObject *py_dirent, *py_dirent_p;
+    PyTypeObject *py_pollfd, *py_pollfd_p;
+    
+    PyObject    *memorycast;// memoryview.cast ref
+    PyObject    *decoders;  // {}
+    union {
+        PyObject *ints_obj;
+        PyTupleObject *ints_tuple;
+    };
+    PyObject    **ints;
+};
 
-    if (off.s < 0) {
-        off.s += buf.len;
-        if (off.s < 0)
-            goto out_of_bounds;
+struct unsys_local {
+    struct {
+        char32_t buf[4096];
+    } fsdecode;
+    struct {
+        char    path[4096];
+        char    link[4096];
+    } fdpath;
+};
+
+static struct unsys_local local = {0};
+
+
+static inline const char *
+unsys_FDPATH(int fd) {
+    if (snprintf(local.fdpath.link, 4095, "/proc/self/fd/%d", fd) < 0) {
+        return NULL;
+    }
+    ssize_t n = readlink(local.fdpath.link, local.fdpath.path, 4095);
+    if (n < 0) {
+        return NULL;
+    }
+    local.fdpath.path[n] = 0;
+    return local.fdpath.path;
+}
+
+static PyObject *
+unsys_fdpath(PyObject *mod, PyObject *obj) {
+    PyObject *tmp;
+    int fd;
+    if (PyLong_CheckExact(obj)) {
+        tmp = NULL;
+        pylong_obj: switch (Py_SIZE(obj)) {
+            case 0: 
+            case 1: {
+                fd = *((PyLongObject *) obj)->ob_digit;
+                break;
+            }
+            default: {
+                goto not_filelike;
+            }
+        }
+        const char *path = unsys_FDPATH(fd);
+        Py_XDECREF(tmp);
+        if (path == NULL) {
+            return PyErr_SetFromErrno(PyExc_OSError);
+        }
+        return PyBytes_FromString(path);
+    }
+    _Py_IDENTIFIER(fileno);
+    PyObject *fno = _PyObject_LookupSpecial(obj, &PyId_fileno);
+    if (fno == NULL) {
+        PyErr_Clear();
+        tmp = PyNumber_Index(obj);
+        if (tmp == NULL) {
+            return NULL;
+        }
+    } 
+    else {
+        tmp = _PyObject_CallNoArg(fno);
+        Py_DECREF(fno);
+        if (tmp == NULL) {
+            return NULL;
+        }
+        if (!PyLong_CheckExact(tmp)) {
+            goto not_filelike;
+        }
+    }
+    obj = tmp;
+    goto pylong_obj;
+    not_filelike: {
+        Py_XDECREF(tmp);
+    }
+    return PyErr_Format(
+        PyExc_OSError, 
+        "fdpath: argument must be os.FileLike, not %s",
+        _PyType_Name(Py_TYPE(obj))
+    );
+    /*
+    }
+        }
+        obj = tmp;
+    }
+    if ()
+        }
+            tmp = PyNumber_Index(obj);
+    }
+    return fno;
+    PyObject *tmp = NULL;
+    if (PyLong_CheckExact(obj)) {
+        pylong_obj: 
+        switch (Py_SIZE(obj)) {
+            case 1: {
+                fd = *((PyLongObject *) obj)->ob_digit;
+                break;
+            }
+            case 0: {
+                fd = 0;
+                break;
+            }
+            default: goto not_a_fileno;
+        }
     }
     else {
-the_beginning:
-        if (buf.len <= off.s)
-            goto out_of_bounds;
+        return fno;
+        
+        if (fno != NULL) {
+            tmp = _PyObject_CallNoArg(fno);
+            Py_DECREF(fno);
+            if (tmp == NULL) {
+                return NULL;
+            }
+            obj = tmp;
+        }
+        else {
+            PyErr_Clear();
+            tmp = NULL;
+        }
+        if (!UN_IS_LONG(obj)) {
+            fno = PyNumber_Index(obj);
+            Py_XDECREF(tmp);
+            if (PyErr_Occurred()) {
+                return NULL;
+            }
+            tmp = fno;
+            obj = fno;
+            goto pylong_obj;
+        }
+    }
+    const char *path = unsys_FDPATH(fd);
+    Py_XDECREF(tmp);
+    if (path == NULL) {
+        
+    }
+    else {
+        return PyBytes_FromString(path);
+    }
+    not_a_fileno: {
+        Py_XDECREF(tmp);
     }
 
-    if ((get=UNSYS_DECODERS[type&0xff]))
-        res = get((ptrview_t){buf.buf}, off);
-    else 
-        ValueError("unknown fmt code");
-    goto the_end;
-    
-out_of_bounds:
-    IndexError("memory offset out of bounds");
-the_end:
-    PyBuffer_Release(&buf);
+    */
+}
+
+static PyObject *
+unsys_fsdecode(PyObject *mod, PyObject *obj) {
+    _Bool ref;
+    PyObject *paf;
+    switch (un_tp_subclass(obj)) {
+        case Py_TPFLAGS_UNICODE_SUBCLASS: {
+            return Py_NewRef(obj);
+        }
+        case Py_TPFLAGS_BYTES_SUBCLASS: {
+            ref = false;
+            paf = obj;
+            break;
+        }
+        default: {
+            _Py_IDENTIFIER(__fspath__);
+            PyObject *f = _PyObject_LookupSpecial(obj, &PyId___fspath__);
+            if (f == NULL) {
+                return PyErr_Format(
+                    PyExc_TypeError, 
+                    "fsdecode: argument should be str, bytes, or os.PathLi"
+                    "ke, not %s",
+                    _PyType_Name(Py_TYPE(obj))
+                );
+            }
+            paf = _PyObject_CallNoArg(f);
+            Py_DECREF(f);
+            if (paf == NULL) {
+                return NULL;
+            }
+            if (UN_IS_BYTES(paf)) {
+                ref = true;
+                break;
+            }
+            if (UN_IS_STR(paf)) {
+                return paf;
+            }
+            Py_DECREF(paf);
+            return PyErr_Format(
+                PyExc_TypeError,
+                "fsdecode: __fspath__ didn't return str/bytes"
+            );
+        }
+    }
+    const char *src = ((PyBytesObject *) paf)->ob_sval;
+    char32_t *dst = local.fsdecode.buf;
+    ptrdiff_t pos = 0;
+    ptrdiff_t end = PyBytes_GET_SIZE(paf);
+    PyObject *str;
+    for (; pos < end; dst++) {
+        if (src[pos] == 0) {
+            *dst=0, pos++;
+            continue;
+        }
+        *dst = UTF_8_DECODE(src, &pos);
+        if (*dst == WEOF) {
+            PyObject *e = PyUnicodeDecodeError_Create(
+                "utf-8",//  const char *encoding,
+                src,    //  const char *object,
+                end,    //  Py_ssize_t length,
+                pos,    //  Py_ssize_t start,
+                pos+1,  //  Py_ssize_t end,
+                "invalid start byte"
+            ); //    const char *reason)
+            PyErr_SetObject((PyObject *) Py_TYPE(e), e);
+            str = NULL;
+            goto the_end;
+        }
+    }
+    str = PyUnicode_FromKindAndData(
+        PyUnicode_4BYTE_KIND, 
+        local.fsdecode.buf,
+        dst-local.fsdecode.buf
+    );
+    the_end: {
+        if (ref) {
+            Py_DECREF(paf);
+        }
+    }
+    return str;
+}
+
+static PyObject *
+sit_on_it(PyObject *mod) {
+    PyObject *e = PyUnicodeDecodeError_Create(
+        "utf-8",//  const char *encoding,
+        "pain",//  const char *object,
+        4,      //  Py_ssize_t length,
+        0,    //  Py_ssize_t start,
+        1,  //  Py_ssize_t end,
+        "invalid start byte"
+    ); //    const char *reason)
+    PyErr_SetObject((PyObject *) Py_TYPE(e), e);
+    return NULL;
+}
+
+static PyObject *
+unsys_isbuffer(PyObject *mod, PyObject *obj) {
+    if (PyObject_CheckBuffer(obj)) {
+        Py_RETURN_FALSE;
+    }
+    else {
+        Py_RETURN_TRUE;
+    }
+}
+
+static PyObject *
+unsys_digits(PyObject *mod, PyObject *obj) {
+    PyObject *res;
+    if (!UN_IS_LONG(obj)) {
+        return PyErr_Format(PyExc_TypeError, "\"%s\" object not an int");
+    }
+    PyLongObject *nb = (PyLongObject *) obj;
+    int sgn;
+    Py_ssize_t len = Py_SIZE(obj);
+    if (len < 0) {
+        sgn = 0-1;
+        len = 0-len;
+    }
+    else {
+        sgn = 0;
+    }
+    res = PyTuple_New(len+1);
+    PyObject **seq = ((PyTupleObject *) res)->ob_item;
+    *seq = PyLong_FromLong(sgn);
+    if (*seq++ == NULL) {
+        error: {
+            Py_DECREF(res);
+            return NULL;
+        }
+    }
+    for (Py_ssize_t i=0; i < len; i++) {
+        *seq = PyLong_FromLong(nb->ob_digit[i]);
+        if (*seq++ == NULL) {
+            goto error;
+        }
+    }
     return res;
 }
 
-static inline void *
-jalloc(PyTypeObject *tp) {
-    pyalias_t obj = {PyObject_Malloc(tp->tp_basicsize)};
-    if (!obj.as_object)
-        return PyErr_NoMemory();
-    obj.as_object->ob_refcnt   = 1;
-    obj.as_object->ob_type     = tp;
-    return obj.as_any;
+static void
+char_dealloc(Char_t *self) {
+    Py_TYPE(self)->tp_free(self);
+    Py_DECREF(Py_TYPE(self));
 }
 
-static Py
-Dtype_new(PyTypeObject *tp, Py args, Py kwds) {
+static PyObject *
+char_pylong(Char_t *obj) {
+    struct unsys *mod = PyType_GetModuleState(Py_TYPE(obj));
+    return Py_NewRef(mod->ints[(int) obj->cval]);
+}
 
-    /*
-    (name, spec)
-    (name, spec, offset)
-    (name, spec, offset, arraylen)
-    (name, spec, offset, bitshift, bitmask)
-    */
-    DtypeObject    *self;
-    Py              name;
-    dtype_t         type = {0};
-    pyalias_t       arg  = {args};
-    PyObject      **seq  = arg.as_tuple->ob_item;
-    size_t          narg = (size_t) arg.as_varobject->ob_size;
+static PyObject *
+schar_pylong(Char_t *obj) {
+    struct unsys *mod = PyType_GetModuleState(Py_TYPE(obj));
+    return Py_NewRef(mod->ints[(int) obj->sval]);
+}
 
-    if ((narg < 2) || (narg > 5)) {
-        TypeError("__new__ requires 3-5 positional only arguments");
+static PyObject *
+uchar_pylong(Char_t *obj) {
+    struct unsys *mod = PyType_GetModuleState(Py_TYPE(obj));
+    return Py_NewRef(mod->ints[(int) obj->uval]);
+}
+
+static PyObject *
+schar_repr(const Char_t *obj) {
+    return PyUnicode_FromFormat(
+        "%s(%d)",
+        _PyType_Name(((PyObject *) obj)->ob_type),
+        obj->sval 
+    );
+}
+
+static PyObject *
+schar_new(PyTypeObject *cls, PyObject *args, PyObject *kwds) {
+    const struct unsys *mod = PyType_GetModuleState(cls);
+    pyref_t self;
+    signed v;
+    _Bool dec;
+    if (!_PyArg_NoKeywords(_PyType_Name(cls), kwds)) {
         return NULL;
     }
-
-    if ((name=*seq++) != Py_None) {
-        if (!PyUnicode_CheckExact(name)) {
-            TypeError("the name of the type must be a str or None");
+    if (Py_SIZE(args) == 0) {
+        v = 0;
+        goto the_obj;
+    }
+    if (Py_SIZE(args) > 1) {
+        return PyErr_Format(
+            PyExc_TypeError,
+            "%s: expected at most 1 argument; got %zi",
+            _PyType_Name(cls),
+            Py_SIZE(args)
+        );
+    }
+    pyref_t arg = {.any=*((PyTupleObject *) args)->ob_item};
+    if (!PyLong_Check(arg.as_obj)) {
+        arg.as_obj = PyNumber_Index(arg.as_obj);
+        if (arg.as_obj == NULL) {
             return NULL;
         }
+        dec = 1;
     }
-    Py_INCREF(name);
-    
-    switch (fastsubclass(seq[0])) {
-        case 0:
-        case Py_TPFLAGS_LONG_SUBCLASS:
-            type._ustate = (uint32_t) PyLong_AsUnsignedLongMask(*seq++);
-            if (PyErr_Occurred())
-                return NULL;
+    else {
+        dec = 0;
+    }
+    const Py_ssize_t n = arg.as_var->ob_size;
+    switch (n) {
+        case 0*0: {
+            v = 0;
             break;
-        case Py_TPFLAGS_UNICODE_SUBCLASS:
-            type._sstate = pywcs_to_wint_t(*seq++);
-            break;
-        case Py_TPFLAGS_BYTES_SUBCLASS:
-            type._sstate = pychar_to_wint_t(*seq++);
-            break;
-        default:
-            TypeError("invalid layout: must be int or (w)char");
-            return NULL;
-    }
-
-    if (type._ustate > 0xffff) {
-        TypeError("invalid typecode for primitive data type");
-        goto fail;
-    }
-
-    if (!UNSYS_DECODERS[type.dt_layout]) {
-        TypeError("invalid typecode");
-        goto fail;
-    }
-
-    if (narg > 2) {
-        type.dt_offset.s = PyLong_AsSsize_t(*seq);
-        if (PyErr_Occurred())
-            goto fail;
-        if (type.dt_offset.s < 0) {
-            ValueError("offset must be >= 0");
-            return NULL;
         }
-        else if (narg == 4) {
-            type.dt_length.s = PyLong_AsSsize_t(*(++seq));
-            if (PyErr_Occurred())
-                goto fail;
-            type.dt_ndim = 1;
+        case 0+1: {
+            v =   *arg.as_long->ob_digit;
+            break;
         }
-        else if (narg == 5) {
-            size_t bitmax = UNSYS_BITMASK_MAX[type.dt_layout];
-            if (!bitmax) 
-                TypeError("unsuitable bit field layout");
-            size_t sht = PyLong_AsSize_t(*(++seq));
-            uint8_t bit;
-            if (PyErr_Occurred())
-                goto fail;
-            if (bitmax <= sht) {
-                bitmax -= sht;
-                type.dt_bitmask = (uint32_t) PyLong_AsSize_t(*seq);
-                if (PyErr_Occurred())
-                    goto fail;
-                if (type.dt_bitmask > 0xFFFFFFFF) 
-                    bit = 33;
-                else if (type.dt_bitmask > 0x0000FFFF) {
-                    if  (type.dt_bitmask > 0x00FFFFFF)
-                        bit = 030+NBIT[type.dt_bitmask>>030];
-                    else 
-                        bit = 020+NBIT[type.dt_bitmask>>020];
-                }
-                else {
-                    if  (type.dt_bitmask > 0x000000FF)
-                        bit = 010+NBIT[type.dt_bitmask>>010];
-                    else 
-                        bit =     NBIT[type.dt_bitmask];
-                }
+        case 0-1: {
+            v = 0-*arg.as_long->ob_digit;
+            break;
+        }
+        default: {
+            if (n < 0) {
+                v = (0-1)-arg.as_long->ob_digit[0-(n+1)];
             }
-            else 
-                bit = 65,
-                sht = 0;
-            if (bit > sht) {
-                TypeError("bitfield spilled out of its allocation unit");
-                goto fail;
-                }
-            type.dt_bitshift = (uint8_t) sht;
+            else {
+                v = arg.as_long->ob_digit[n-1];
+            }
         }
     }
+    if (dec) {
+        Py_DECREF(arg.as_obj);
+    }
+    the_obj: {
+        self.as_any = PyObject_Malloc(cls->tp_basicsize);
+    }
+    if (self.as_any == NULL) {
+        return NULL;
+    }
+    self.as_obj->ob_refcnt  = 1;
+    self.as_obj->ob_type    = (PyTypeObject *) Py_NewRef((PyObject *) cls);
+    self.as_unchar->sval    = (signed char) v;
+    return self.as_obj;
+}
 
-    self = jalloc(tp);
-    if (!self)
-        goto fail;
-    self->dt_name = name;
-    self->dt_type = type;
-    return (Py)self;
-    fail:
-    Py_DECREF(name);
-    return NULL;
+static int
+unsys_traverse(PyObject *mod, visitproc visit, void *arg) {
+    struct unsys *self = PyModule_GetState(mod);
+    Py_VISIT(self->py_schar);
+    Py_VISIT(self->ints_obj);
+    return 0;
+}
 
+static int
+unsys_clear(PyObject *mod) {
+    struct unsys *self = PyModule_GetState(mod);
+    Py_CLEAR(self->py_schar);
+    Py_DECREF(self->ints_obj);
+    return 0;
 }
 
 static void
-Dtype_dealloc(Py self) {
-    Py_XDECREF(((DtypeObject*)self)->dt_name);
-    PyObject_Del(self);
+unsys_free(void *mod) {
+    (void) unsys_clear(mod);
 }
 
-static PyTypeObject 
-DtypeType = {
-    .tp_name                = "Dtype",
-    .tp_basicsize           = sizeof(DtypeObject),
-    .tp_itemsize            = 0,
-    .tp_dealloc             = (&Dtype_dealloc),  
-    .tp_getattr             = (getattrfunc)(0),            
-    .tp_setattr             = (setattrfunc)(0), 
-    .tp_as_async            = (PyAsyncMethods *)(0),
-    .tp_repr                = (reprfunc)(0),
-    .tp_as_number           = (PyNumberMethods *)(0),
-    .tp_as_sequence         = (PySequenceMethods *)(0),
-    .tp_as_mapping          = (PyMappingMethods *)(0),
-    .tp_hash                = (hashfunc)(0),
-    .tp_call                = (ternaryfunc)(0),
-    .tp_str                 = (reprfunc)(0),
-    .tp_getattro            = (getattrofunc)(0),
-    .tp_setattro            = (setattrofunc)(0),
-    .tp_as_buffer           = (PyBufferProcs *)(0),
-    .tp_flags               = Py_TPFLAGS_DEFAULT,
-    .tp_doc                 = (const char *)(0),
-    .tp_traverse            = (traverseproc)(0),
-    .tp_clear               = (inquiry)(0),
-    .tp_richcompare         = (richcmpfunc)(0),
-    .tp_weaklistoffset      = 0,
-    .tp_iter                = (getiterfunc)(0),
-    .tp_iternext            = (iternextfunc)(0),
-  /*.tp_methods             = (struct PyMethodDef []){{0}},
-*//*.tp_members             = (struct PyMemberDef []){
-        [0] = {
-            .name   = (const char *)(0),
-            .type   = (int)(0),
-            .offset = (ssize_t)(0),
-            .flags  = (int)(0),
-            .doc    = (const char *)(0),
-        },
-    }, 
-*//*.tp_getset              = (struct PyGetSetDef []){{0}},
-*/  .tp_base                = (PyTypeObject *)(0),
-    .tp_dict                = (PyObject *)(0),
-    .tp_descr_get           = (descrgetfunc)(0),
-    .tp_descr_set           = (descrsetfunc)(0),
-    .tp_dictoffset          = 0,
-    .tp_init                = (initproc)(0),
-    .tp_alloc               = (allocfunc)(0),
-    .tp_new                 = (newfunc)(Dtype_new),
-    .tp_free                = (freefunc)(0),
-    .tp_is_gc               = (inquiry)(0),
-};
-
-static struct PyModuleDef 
-unsys_module = {
-    .m_base     = PyModuleDef_HEAD_INIT, 
-    .m_name     = "martin", 
-    .m_doc      = "mar", 
-    .m_size     = -1,
-    .m_methods  = (struct PyMethodDef []) {
-        {"identity", &unsys_identity, METH_O, (
-            "The identity function: f(x) -> x\n")
-        },
-        {"testbit", &unsys_testbit, METH_NOARGS, ""},
+static PyType_Spec 
+schar_spec = { 
+    .name       = "unsys.schar_t", 
+    .basicsize  = sizeof(Char_t), 
+    .itemsize   = 0, 
+    .flags      = (Py_TPFLAGS_DEFAULT|Py_TPFLAGS_IMMUTABLETYPE), 
+    .slots = (PyType_Slot []){
         {
-            "decode", &unsys_decode, METH_O,
-            "decode((fmt, buffer, *[offset, *[bitmask]]))\n"
-            "\n"
-            "Get an instance of a C data type as a Python object.\n"
-            "Requires a tuple of 1-4 items:\n"
-            "\n"
-            "   *   An int or a single character str or bytes object\n"
-            "       that is to be converted to an int as if used as\n"
-            "       the argument of ord(x)\n"
-            "\n"
-            "       The following lists the mapping of typecodes to\n"
-            "       the corresponding C data type:\n"
-            "\n"
-            "       *  '?' -> (_Bool)"               "\n"
-            "       *  'B' -> (unsigned char)"       "\n"
-            "       *  'H' -> (unsigned short)"      "\n"
-            "       *  'I' -> (unsigned int)"        "\n"
-            "       *  'L' -> (unsigned long)"       "\n"
-            "       *  'Q' -> (unsigned long long)"  "\n"
-            "       *  'b' -> (signed char)"         "\n"
-            "       *  'h' -> (signed short)"        "\n"
-            "       *  'i' -> (signed int)"          "\n"
-            "       *  'l' -> (signed long)"         "\n"
-            "       *  'q' -> (signed long long)"    "\n"
-            "       *  'f' -> (float)"               "\n"
-            "       *  'd' -> (double)"              "\n"
-            "       Note: the type codes are actually 32 bits, with\n"
-            "       the least significant byte reserved for the base\n"
-            "       type. The upper 24 bits are irrelevant for this\n"
-            "       particular function, which is why 'characters'\n"
-            "       are accepted.\n"  
-            "\n"
-            "   *   The buffer in which the object is located.\n"
-            "\n"
-            "   *   An offset in the buffer of the most significant\n"
-            "       byte of the value. Negative offsets are handled\n"
-            "       as they are with any other sequence\n"
-            "\n"
-            "   *   A 2 tuple describing a bit field\n"
-        },
+            Py_tp_doc,     
+            "Python representation of a C 'signed char'\n"
+        }, 
+        {Py_tp_dealloc,     char_dealloc},
+        {Py_tp_new,         schar_new}, 
+        {Py_tp_getattro,    PyObject_GenericGetAttr}, 
+        {Py_tp_repr,        schar_repr}, 
         {0},
     },
 };
 
+static int 
+unsys_exec(void *mod) {
+    int i = 0;
+    struct unsys *self = PyModule_GetState(mod);
+    if (!(self->ints_obj=PyTuple_New(384))) {
+        return 0-1;
+    }
+    PyObject **ints = self->ints_tuple->ob_item;
+    self->ints = ints+128;
+    for (long v=-128; i < 384; v++) {
+        if (!(ints[i++]=PyLong_FromLong(v))) {
+            Py_DECREF(self->ints_obj);
+            return 0-1;
+        }
+    }
+    self->py_schar = (PyTypeObject *)
+        PyType_FromModuleAndSpec(mod, &schar_spec, 0);
+    if (PyModule_AddType(mod, self->py_schar) < 0) { 
+        return 0-1;
+    }
+    return 0;
+}
+
+static 
+struct PyModuleDef unsys_moduledef = { 
+    PyModuleDef_HEAD_INIT, 
+    .m_name = "unsys", 
+    .m_size = sizeof(struct unsys),
+    .m_doc  = (
+        "[Un]iversal [sys]tem call interface\n"
+        "\n"
+        "Functions:\n"
+        "   * isbuffer()\n"
+        "Classes:\n"
+        "   * CData\n"
+        "   * CPointer\n"
+        "   * CStruct\n"
+        "   * CFunction\n"
+    ),
+    .m_methods = (PyMethodDef[]){
+        {
+            .ml_name    = "isbuffer",
+            .ml_meth    = (PyCFunction) unsys_isbuffer,
+            .ml_flags   = METH_O,
+            .ml_doc     = (
+            "isbuffer(x: object, /) -> bool\n"
+            "\n"
+            "Check if an object implements the buffer protocol"
+            ),
+        },
+        {
+            .ml_name = "sitonit",
+            .ml_meth = (PyCFunction) sit_on_it,
+            .ml_flags = METH_NOARGS,
+            .ml_doc = "fruit",
+        },
+        {
+            .ml_name = "fdpath",
+            .ml_meth = (PyCFunction) unsys_fdpath,
+            .ml_flags = METH_O,
+            .ml_doc = 
+            "fdpath(x: os.FileLike) -> str\n\n"
+            "Obtain the path used to open the os.FileLike object x.",
+        },
+        {
+            .ml_name    = "fsdecode",
+            .ml_meth    = (PyCFunction) unsys_fsdecode,
+            .ml_flags   = METH_O,
+            .ml_doc     = 
+            "fsdecode(x: os.PathLike) -> str\n"
+            "\n"
+            "Obtain the path representation of an object and then if "
+            "necessary, decode it as x.decode('utf-8', 'surrogatepass')"
+        },
+        {
+            .ml_name    = "digits",
+            .ml_meth    = (PyCFunction) unsys_digits,
+            .ml_flags   = METH_O,
+            .ml_doc     = "digits(x: int, /) -> tuple[int]\n",
+        },
+        {0},
+    },
+    .m_slots    = (PyModuleDef_Slot []){
+        {Py_mod_exec, unsys_exec},
+        {0},
+    },
+    //.m_traverse = unsys_traverse,
+    .m_clear    = unsys_clear, 
+    .m_free     = unsys_free,
+};
+
 PyMODINIT_FUNC 
-PyInit_unsys(void) { 
-    Py m;
-    if (PyType_Ready(&DtypeType) < 0)
-        return NULL;
-    if (!(m=PyModule_Create(&unsys_module)))
-        return NULL;
-    PyModule_AddObject(m, "Dtype", (Py)&DtypeType);
-    PyModule_AddIntMacro(m, UNSYS_SSIZE);
-    PyModule_AddIntMacro(m, UNSYS_SIZE);
-    PyModule_AddIntMacro(m, UNSYS_OFF);
-    PyModule_AddIntMacro(m, UNSYS_PTRDIF);
-    PyModule_AddIntMacro(m, UNSYS_CHAR);
-    PyModule_AddIntMacro(m, UNSYS_UCHAR);
-    PyModule_AddIntMacro(m, UNSYS_USHORT);
-    PyModule_AddIntMacro(m, UNSYS_UINT);
-    PyModule_AddIntMacro(m, UNSYS_ULONG);
-    PyModule_AddIntMacro(m, UNSYS_ULLONG);
-    PyModule_AddIntMacro(m, UNSYS_UINT8);
-    PyModule_AddIntMacro(m, UNSYS_UINT16);
-    PyModule_AddIntMacro(m, UNSYS_UINT32);
-    PyModule_AddIntMacro(m, UNSYS_UINT64);
-    PyModule_AddIntMacro(m, UNSYS_UINT64);
-    PyModule_AddIntMacro(m, UNSYS_UINTMAX);
-    PyModule_AddIntMacro(m, UNSYS_SCHAR);
-    PyModule_AddIntMacro(m, UNSYS_VOID);
-    PyModule_AddIntMacro(m, UNSYS_ADDR);
-    
-    PyModule_AddIntMacro(m, UNSYS_SHORT);
-    PyModule_AddIntMacro(m, UNSYS_INT);
-    PyModule_AddIntMacro(m, UNSYS_LONG);
-    PyModule_AddIntMacro(m, UNSYS_LLONG);
-    PyModule_AddIntMacro(m, UNSYS_INT8);
-    PyModule_AddIntMacro(m, UNSYS_INT16);
-    PyModule_AddIntMacro(m, UNSYS_INT32);
-    PyModule_AddIntMacro(m, UNSYS_INT64);
-    PyModule_AddIntMacro(m, UNSYS_INT64);
-    PyModule_AddIntMacro(m, UNSYS_INTMAX);
-    
-    return m;
+PyInit_unsys(void) {
+    return PyModuleDef_Init(&unsys_moduledef);
 }
