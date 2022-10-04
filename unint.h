@@ -1,77 +1,51 @@
 /* °′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳   
 
-Extends <stdint.h> 
+Extension of <stdint.h> 
 
-    uint64_VMUL(v[2], a, b) => prod
-        Multiply two uint64_Multiply and store the result
-        as a uint64_t pair representing the upper and
-        lower 64 bits of the product.
-        Returns the pointer to the upper 64 bits.
+    uint64_VMUL(v[2], a, b) => product of a*b
     
+
     uint64_VDIV(v[2], d, *m) => quotient
-        Divide a 128 bit unsigned integer stored as a pair
-        of two uint64_t values representing the upper and 
-        lower 64 bits by a uint64_t dividend. The remainder
-        is stored in m and the quotient is returned. The
-        caller is responsible for ensuring the inputs won't
-        result in a quotient wider than 64 bits.
+
+        Divide a 128 bit unsigned integer stored as a pair of
+        unsigned 64 bit ints v by the 64 bit unsigned int d. 
+        The remainder is stored at the address of the 64 bit 
+        unsigned int m and the quotient is returned. If the
+        quotient is wider than 64 bits, the behavior is 
+        implementation defined.
+
 
     BITLEN(uint16_t n)
-        A macro that replaces the result of an integer 
-        constant expression with the number of digits in 
-        its base 2 representation, i.e it's "bit length".
-        The following example show its primary intended use 
-        case: dynamic updating the width of a bitfield. 
-        
-            enum repr {
-                CHAR_REPR,
-                ...
-                LLONG_REPR,
-                INTMAX_REPR,
-                ENUM_REPR_MAX,
-            };
-            struct something {
-                ...
-                unsigned 
-                    repr: BITLEN((ENUM_REPR_MAX-1));
-            };
-        Note: for arguments other than symbolic constants that
-        evaluate to int literals (including enum members), 
-        parentheses are required.
 
-    BITLEN8(uint8_t n) 
-    BITLEN16(uint16_t n)
-    BITLEN32(uint32_t n)
-    BITLEN64(uint64_t n)
-    BITLENX(uint128_t n) *not available on windows
+        Get the bit length of an integer constant expression as 
+        an integer constant expression. I.e., BITLEN(12345)  
+        expands to an expression which evaluates to 14. Note 
+        that the parameter is evaluated at least 4 times. 
+        Useful for calculating the size of bit fields.
+
+
+    bitlenb(unsigned char)
+    bitlenh(unsigned short)
+    bitleni(unsigned int)
+    bitlenl(unsigned long)
+    bitlenv(unsigned long long) 
+    bitlenj(uintmax_t)
+    bitlen8(uint8_t n) 
+    bitlen16(uint16_t n)
+    bitlen32(uint32_t n)
+    bitlen64(uint64_t n)
+
         Compute the length of the binary representation of an
         instance of the corresponding fixed width unsigned int
+        All have a corresponding uppercase version as a static
+        inline.
 
-    BITLENB(unsigned char c)
-    BITLENH(unsigned short n)
-    BITLENU(unsigned int n)
-    BITLENL(unsigned long n)
-    BITLENQ(unsigned long long n) 
-    BITLENJ(uintmax_t n)
-        Calculate the length of the binary representation of an
-        instance of the corresponding unsigned int
-
-    BITLENV(uint64_t v[2]) 
-        Calculate the length of the binary representation
-        of a 128 bit integer stored as a uint64_t couple.
-
-    int_DIVMOD(int a, int b) 
-    long_DIVMOD(long a, long b) 
-    llong_DIVMOD(llong, llong b) 
-    intmax_DIVMOD(intmax_t a, intmax_t b)
-
-        The same as $div except that the result actually makes 
-        sense:
-            
-            (+)/(+) = (+)%(+)  +5/+2 = +2 mod +1 (+2*+2 = +4; +4++1 = +5)
-            (+)/(-) = (-)%(-)  +5/-2 = -3 mod -1 (-2*-3 = +6; +6+-2 = +5)
-            (-)/(+) = (+)%(-)  -5/+2 = -3 mod +1 (+2*-3 = -6; -6++1 = -5)
-            (-)/(-) = (-)%(+)  -5/-2 = +2 mod -1 (-2*+2 = -4; -4+-2 = -5)
+    int         divmodi(int *rem, int, int) 
+    long        divmodl(long *rem, long, long) 
+    long long   divmodv(llong *rem, llong, llong) 
+    intmax_t    divmodj(intmax_t *rem, intmax_t, intmax_t)
+        
+        Signed division, storing the remainder in rem. 
 
 */
 #pragma once
@@ -83,10 +57,12 @@ Extends <stdint.h>
 #include <string.h>
 
 #ifndef SIZE_C
-#   if SIZE_MAX == UINT32_MAX
-#       define SIZE_C UINT32_C
+#   if   SIZE_MAX == UINT16_MAX
+#       define SIZE_C   UINT16_C
+#   elif SIZE_MAX == UINT32_MAX
+#       define SIZE_C   UINT32_C
 #   elif SIZE_MAX == UINT64_MAX
-#       define SIZE_C UINT64_C
+#       define SIZE_C   UINT64_C
 #   else 
 #       error "unsupported value of SIZE_MAX"
 #   endif
@@ -115,17 +91,16 @@ Extends <stdint.h>
 
 #endif
 
-
-#define ZERO                INT32_C(0)
-#define ONE                 INT32_C(1)
-#define TEN                 INT32_C(10)
-#define HUNDRED             INT32_C(100)
-#define THOUSAND            INT32_C(1000)
-#define MILLION             INT32_C(1000000)
-#define BILLION             INT32_C(1000000000)
-#define TRILLION            INT64_C(1000000000000)
-#define QUADRILLION         INT64_C(1000000000000000)
-#define QUINTILLION         INT64_C(1000000000000000000)
+#define ZERO        INT32_C(0)
+#define ONE         INT32_C(1)
+#define TEN         INT32_C(10)
+#define HUNDRED     INT32_C(100)
+#define THOUSAND    INT32_C(1000)
+#define MILLION     INT32_C(1000000)
+#define BILLION     INT32_C(1000000000)
+#define TRILLION    INT64_C(1000000000000)
+#define QUADRILLION INT64_C(1000000000000000)
+#define QUINTILLION INT64_C(1000000000000000000)
 
 #define BITLEN(i)  (\
   i < 0x0100        \
@@ -144,14 +119,31 @@ Extends <stdint.h>
 ? i > 0x2000?015:016\
 : i < 0x8000?017:020)
 
-#define BITLEN16 BITLENH
+typedef unsigned char bitlen_t;
 
-#define BITLEN8 BITLENB
+static bitlen_t bitlenb(unsigned char);
+static bitlen_t bitlenh(unsigned short);
+static bitlen_t bitleni(unsigned int);
+static bitlen_t bitlenl(unsigned long);
+static bitlen_t bitlenv(unsigned long long);
+static bitlen_t bitlen8(uint8_t);
+static bitlen_t bitlen16(uint16_t);
+static bitlen_t bitlen32(uint32_t);
+static bitlen_t bitlen64(uint64_t);
+static bitlen_t bitlenj(uintmax_t);
 
+intmax_t  imaxabs(intmax_t);
+imaxdiv_t imaxdiv(intmax_t, intmax_t);
+intmax_t  strtoimax(const char *, char **, int);
+uintmax_t strtoumax(const char *, char**, int);
+intmax_t  wcstoimax(const wchar_t *, wchar_t **, int);
+uintmax_t wcstoumax(const wchar_t *, wchar_t **, int);
 
-static const unsigned char 
+static const bitlen_t
 BYTELEN[] = {
-    // bit length lookup table
+    /*  BYTELEN[n] is the size of the unsigned char n's binary
+        representation (i.e. bit length)
+    */
     0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
     6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
     7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
@@ -162,8 +154,68 @@ BYTELEN[] = {
     8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 };
 
-static inline unsigned char
-BITLENJ(unsigned long long i) {
+static inline bitlen_t
+BITLENB(unsigned char i) {
+#   define BITLEN8 BITLENB
+    return BYTELEN[i];
+}
+
+static inline bitlen_t
+BITLENH(unsigned short i) {
+#   define BITLEN16 BITLENH
+    return i > 0xFFU ? BYTELEN[i>>8]+8 : BYTELEN[i];
+}
+
+static inline bitlen_t
+BITLENI(unsigned int i) {
+#   define BITLEN32 BITLENI
+    return 
+    i < 0x10000U
+    ?   i < 0x100U
+        ?   BYTELEN[i] 
+        :   BYTELEN[i>>010]+010
+    :   i < 0x10000U
+        ?   BYTELEN[i>>020]+020
+        :   BYTELEN[i>>030]+030;
+}
+
+static inline bitlen_t
+BITLENL(unsigned long i) {
+    return 
+#   if LONG_MAX == INT32_MAX
+#   define BITLEN64 BITLENV
+#   define BITLENJ BITLENV
+    i < 0x10000UL
+    ?   i < 0x100UL
+        ?   BYTELEN[i]
+        :   BYTELEN[i>>010]+010
+    :   i < 0x10000UL
+        ?   BYTELEN[i>>020]+020
+        :   BYTELEN[i>>030]+030;
+
+#   else
+#   define BITLEN64 BITLENL
+#   define BITLENJ BITLENL
+    i <= 0x00000000FFFFFFFFUL
+    ?   i <= 0x000000000000FFFFUL
+        ?   i <= 0x00000000000000FFUL
+            ?   BYTELEN[i]
+            :   BYTELEN[i>>010]+010
+        :   i <= 0x0000000000FFFFFFUL
+            ?   BYTELEN[i>>020]+020
+            :   BYTELEN[i>>030]+030
+    :   i <= 0x0000FFFFFFFFFFFFUL
+            ?   i <= 0x000000FFFFFFFFFFUL
+                ?   BYTELEN[i>>040]+040
+                :   BYTELEN[i>>050]+050
+            :   i <= 0x00FFFFFFFFFFFFFFUL
+                ?   BYTELEN[i>>060]+060
+                :   BYTELEN[i>>070]+070;
+#   endif
+}
+
+static inline bitlen_t
+BITLENV(unsigned long long i) {
     return
     i <= 0x00000000FFFFFFFFULL
     ?   i <= 0x000000000000FFFFULL
@@ -182,104 +234,84 @@ BITLENJ(unsigned long long i) {
                 :   BYTELEN[i>>070]+070;
 }
 
-intmax_t  imaxabs(intmax_t);
-imaxdiv_t imaxdiv(intmax_t, intmax_t);
-intmax_t  strtoimax(const char *, char **, int);
-uintmax_t strtoumax(const char *, char**, int);
-intmax_t  wcstoimax(const wchar_t *, wchar_t **, int);
-uintmax_t wcstoumax(const wchar_t *, wchar_t **, int);
-
-static inline unsigned char
-BITLENB(unsigned char i) {
-    return BYTELEN[i];
+static bitlen_t 
+bitlenb(unsigned char i) {
+    return BITLENB(i);
 }
 
-static inline unsigned char
-BITLENH(unsigned short i) {
-    return i > 0xFFU ? BYTELEN[i>>8]+8 : BYTELEN[i];
+static bitlen_t 
+bitlenh(unsigned short i) {
+    return BITLENH(i);
 }
 
-static inline unsigned char
-BITLENU(unsigned int i) {
-    return 
-    i < 0x10000U
-    ?   i < 0x100U
-        ?   BYTELEN[i] 
-        :   BYTELEN[i>>010]+010
-    :   i < 0x10000U
-        ?   BYTELEN[i>>020]+020
-        :   BYTELEN[i>>030]+030;
+static bitlen_t 
+bitleni(unsigned int i) {
+    return BITLENI(i);
 }
 
-#if LONG_MAX == INT_MAX
-
-#   define BITLEN32 BITLENL
-#   define BITLEN64 BITLENJ
-
-static inline unsigned char
-BITLENL(unsigned long i) {
-    return 
-    i < 0x10000UL
-    ?   i < 0x100UL
-        ?   BYTELEN[i]
-        :   BYTELEN[i>>010]+010
-    :   i < 0x10000UL
-        ?   BYTELEN[i>>020]+020
-        :   BYTELEN[i>>030]+030;
+static bitlen_t 
+bitlenl(unsigned long i) {
+    return BITLENL(i);
 }
 
-#else
-
-#   define BITLEN32 BITLENU
-#   define BITLEN64 BITLENL
-
-static inline unsigned char
-BITLENL(unsigned long i) {
-    return
-    i <= 0x00000000FFFFFFFFUL
-    ?   i <= 0x000000000000FFFFUL
-        ?   i <= 0x00000000000000FFUL
-            ?   BYTELEN[i]
-            :   BYTELEN[i>>010]+010
-        :   i <= 0x0000000000FFFFFFUL
-            ?   BYTELEN[i>>020]+020
-            :   BYTELEN[i>>030]+030
-    :   i <= 0x0000FFFFFFFFFFFFUL
-            ?   i <= 0x000000FFFFFFFFFFUL
-                ?   BYTELEN[i>>040]+040
-                :   BYTELEN[i>>050]+050
-            :   i <= 0x00FFFFFFFFFFFFFFUL
-                ?   BYTELEN[i>>060]+060
-                :   BYTELEN[i>>070]+070;
+static bitlen_t 
+bitlenv(unsigned long long i) {
+    return BITLENV(i);
 }
 
-#endif
+static bitlen_t 
+bitlen8(uint8_t i) {
+    return BITLEN8(i);
+}
+
+static bitlen_t 
+bitlen16(uint16_t i) {
+    return BITLEN16(i);
+}
+
+static bitlen_t 
+bitlen32(uint32_t i) {
+    return BITLEN32(i);
+}
+
+static bitlen_t 
+bitlen64(uint64_t i) {
+    return BITLEN64(i);
+}
+
+static bitlen_t 
+bitlenj(uintmax_t i) {
+    return BITLENJ(i);
+}
+
 
 #if defined(__SIZEOF_INT128__)
-
+#define BITLEN128 BITLENM
 typedef   signed __int128  int128_t;
 typedef unsigned __int128 uint128_t;
 
-static inline char
-BITLENX(uint128_t i) {
-    uint64_t j = (uint64_t)(i>>64);
-    return j ? BITLEN64(j)+64 : BITLEN64((uint64_t)(i));
+static inline bitlen_t
+BITLENM(uint128_t i) {
+    if (i > UINT64_MAX) {
+        return BITLEN64((uint64_t)(i>>64));
+    }
+    return BITLEN64((uint64_t) i);
 }
 
 #   if 0
 
-    static inline uint64_t
-    _udiv128(uint64_t hi, uint64_t lo, uint64_t d, uint64_t *mod) {
-        uint128_t n = ((uint128_t)(hi)<<64)|lo;
-        return  *mod=(uint64_t)(n%d), (uint64_t)(n/d);
-    }
-    
-    static inline uint64_t
-    _umul128(uint64_t a, uint64_t b, uint64_t *hi) {
-        __uint128_t p = (__uint128_t) a*b;
-        *hi = (uint64_t)  (p>>64);
-        return (uint64_t) (p&UINT64_MAX);
-    }
+static inline uint64_t
+_udiv128(uint64_t hi, uint64_t lo, uint64_t d, uint64_t *mod) {
+    uint128_t n = ((uint128_t)(hi)<<64)|lo;
+    return  *mod=(uint64_t)(n%d), (uint64_t)(n/d);
+}
+
+static inline uint64_t
+_umul128(uint64_t a, uint64_t b, uint64_t *hi) {
+    __uint128_t p = (__uint128_t) a*b;
+    *hi = (uint64_t)  (p>>64);
+    return (uint64_t) (p&UINT64_MAX);
+}
 
 #   endif
 
@@ -405,7 +437,7 @@ UINT64_MUL128(uint64_t a, uint64_t b, uint64_t *lo) {
 #endif
 
 static inline int
-int_DIVMOD(int *v, int n, int d) {
+DIVMODI(int *v, int n, int d) {
     div_t x = div(n, d);
     return  (n < 0)
         ?   (d < 0)
@@ -417,7 +449,7 @@ int_DIVMOD(int *v, int n, int d) {
 }
 
 static inline long
-long_DIVMOD(long *v, long n, long d) {
+DIVMODL(long *v, long n, long d) {
     ldiv_t x = ldiv(n, d);
     return  (n < 0L)
         ?   (d < 0L)
@@ -429,7 +461,7 @@ long_DIVMOD(long *v, long n, long d) {
 }
 
 static inline long long
-llong_DIVMOD(long long *v, long long n, long long d) {
+DIVMODV(long long *v, long long n, long long d) {
     lldiv_t x = lldiv(n, d);
     return  (n < 0LL)
         ?   (d < 0LL)
@@ -441,7 +473,7 @@ llong_DIVMOD(long long *v, long long n, long long d) {
 }
 
 static inline intmax_t
-intmax_DIVMOD(intmax_t *v, intmax_t n, intmax_t d) {
+DIVMODJ(intmax_t *v, intmax_t n, intmax_t d) {
     imaxdiv_t x = imaxdiv(n, d);
     return  (n < INTMAX_C(0))
         ?   (d < INTMAX_C(0))
@@ -450,6 +482,26 @@ intmax_DIVMOD(intmax_t *v, intmax_t n, intmax_t d) {
         :   (d < INTMAX_C(0))
         ?   ((*v=x.rem+d), x.quot-INTMAX_C(1))
         :   ((*v=x.rem),   x.quot);
+}
+
+static int 
+divmodi(int *v, int n, int d) {
+    return DIVMODI(v, n, d);
+}
+
+static long
+divmodl(long *v, long n, long d) {
+    return DIVMODL(v, n, d);
+}
+
+static long long
+divmodv(long long *v, long long n, long long d) {
+    return DIVMODV(v, n, d);
+}
+
+static intmax_t
+divmodj(intmax_t *v, intmax_t n, intmax_t d) {
+    return DIVMODJ(v, n, d);
 }
 
 int
