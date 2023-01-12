@@ -1,7 +1,9 @@
-/*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳ */
+/*°′″  «»  ≤≥  ≠≈  —¦  ÷×  !¡  ©®  £€  $¢  №⋕  λμ  πφ  ∑∏  ¶§  †‡  ±∞  √∆  ∫∳ 
+UCD property "Decomposition_Type", aka "dt"
+*/
+
 #ifndef UCD_DT_H
 #define UCD_DT_H
-
 
 #define NONE_DT 0
 #define  CAN_DT 1
@@ -21,6 +23,7 @@
 #define  SML_DT 15
 #define  SQR_DT 16
 #define  FRA_DT 17
+
 /* extracted/DerivedDecompositionType.txt
 00C0..00C5    ; Canonical #
 00A8          ; Compat #
@@ -39,6 +42,7 @@ FF61          ; Narrow #
 FE50..FE52    ; Small #
 3250          ; Square #
 00BC..00BE    ; Fraction #*/
+
 static const char
 *UCD_DT_PATTERNS[] = {
     [NONE_DT]   = "None",
