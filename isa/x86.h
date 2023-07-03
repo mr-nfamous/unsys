@@ -952,23 +952,23 @@ div128_t    idivwq  (int128_t a, int128_t b)
 #if MY_CPU_VENDOR == CPU_VENDOR_AMD
 /*  Lightweight Profiling
 */
-#   if defined(X86_LWP) //                      -mlwp
+#   if defined( SIS_LWP) //                      -mlwp
 #   endif
 
 /*  Advanced Bit Manipulation
     -march=barcelona
 */
-#   if defined(X86_ABM) //                      -mabm
-#       ifndef X86_POPCNT
-#       define X86_POPCNT
+#   if defined(SIS_X86_ABM) //                      -mabm
+#       ifndef SIS_X86_POPCNT
+#       define SIS_X86_POPCNT
 #       endif
 
-#       ifndef X86_LZCNT
-#       define X86_LZCNT
+#       ifndef SIS_X86_LZCNT
+#       define SIS_X86_LZCNT
 #       endif
 
-#       ifndef X86_BMI1
-#       define X86_BMI1
+#       ifndef SIS_X86_BMI1
+#       define SIS_X86_BMI1
 #       endif
 
 #   endif
@@ -976,25 +976,25 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  eXtended Operations
     -march=bdver1 
 #   include <xopintrin.h> */
-#   if defined(X86_XOP) //                      -mxop
+#   if defined(SIS_X86_XOP) //                      -mxop
 #   endif
 
 /*  Streaming SIMD 4a
     -march=barcelona
 #   include <ammintrin.h> */
-#   if defined(X86_SSE4A) //                    -msse4a
+#   if defined(SIS_X86_SSE4A) //                    -msse4a
 #   endif
 
 /*  Fused Multiply Add 4
     -march=bdver1
 #   include <fma4intrin.h> */
-#   if defined(X86_FMA4) //                     -mfma4
+#   if defined(SIS_X86_FMA4) //                     -mfma4
 #   endif
 
 /*  Timed MONITOR & MWAIT
     -march=znver2
 */
-#   if defined(X86_MWAITX) //                   -mmwaitx
+#   if defined(SIS_X86_MWAITX) //                   -mmwaitx
         Intrin void     __builtin_ia32_monitorx(void *, unsigned, unsigned);
         Intrin void     __builtin_ia32_mwaitx(unsigned, unsigned, unsigned);
 #   endif
@@ -1002,7 +1002,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  Cache Line Zero
     -march=znver1
 #   include <clzerointrin.h> */
-#   if defined(X86_CLZERO) //                   -mclzero
+#   if defined(SIS_X86_CLZERO) //                   -mclzero
         Intrin void     _mm_clzero(void *);
 #   endif
 
@@ -1010,17 +1010,17 @@ div128_t    idivwq  (int128_t a, int128_t b)
 
 /*  Software Guard Extensions 1 & 2 
 #   include <sgxintrin.h> */
-#   if defined(X86_SGX) //                      -msgx
-#       ifndef X86_SGX1
-#       define X86_SGX1
+#   if defined(SIS_X86_SGX) //                      -msgx
+#       ifndef SIS_X86_SGX1
+#       define SIS_X86_SGX1
 #       endif
 
-#       ifndef X86_SGX2
-#       define X86_SGX2
+#       ifndef SIS_X86_SGX2
+#       define SIS_X86_SGX2
 #       endif
 
-#       ifndef X86_OVERSUB
-#       define X86_OVERSUB
+#       ifndef SIS_X86_OVERSUB
+#       define SIS_X86_OVERSUB
 #       endif
 
 #   endif
@@ -1028,14 +1028,14 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  -march=skylake
     -march=goldmont-plus
 */
-#   if defined(X86_SGX1)
+#   if defined(SIS_X86_SGX1)
         Intrin unsigned _encls_u32(unsigned, size_t[]);
 #   endif
 
 /*  -march=skylake
     -march=goldmont-plus
 */
-#   if defined(X86_SGX2)
+#   if defined(SIS_X86_SGX2)
         Intrin unsigned _enclu_u32(unsigned, size_t[]);
 #   endif
 
@@ -1043,28 +1043,28 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=skylake
     -march=goldmont-plus
 */
-#   if defined(X86_OVERSUB)
+#   if defined(SIS_X86_OVERSUB)
         Intrin unsigned _enclv_u32(unsigned, size_t[]);
 #   endif
 
 /*  Cache Line Demotion Hint
     -march=tremont
 #   include <cldemoteintrin.h> */
-#   if defined(X86_CLDEMOTE) //                 -mcldemote
+#   if defined(SIS_X86_CLDEMOTE) //                 -mcldemote
         Intrin void     _cldemote(void const *);
 #   endif
 
 /*  History Reset
     -march=alderlake
 #   include <hresetintrin.h> */
-#   if defined(X86_HRESET) //                   -mhreset
+#   if defined(SIS_X86_HRESET) //                   -mhreset
         Intrin void     _hreset(int);
 #   endif
 
 /*  "User Interprocessor Interrupts"
     -march=sapphirerapids
 #   include <uintrintrin.h> */
-#   if defined(X86_UINTR) //                    -muintr
+#   if defined(SIS_X86_UINTR) //                    -muintr
         Intrin void     _clui(void);
         Intrin void     _stui(void);
         Intrin void     _testui(void);
@@ -1074,7 +1074,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  Direct Store 
     -march=tigerlake|tremont
 #   include <movdirintrin.h> */
-#   if defined(X86_MOVDIRI) //                  -mmovdiri
+#   if defined(SIS_X86_MOVDIRI) //                  -mmovdiri
         Intrin void     _directstoreu_u32(void *, uint32_t);
 #       if MY_ISA == ISA_X64        
         Intrin void     _directstoreu_u64(void *, uint64_t);
@@ -1085,21 +1085,21 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=tigerlake
     -march=tremont
 #   include <movdirintrin.h> */
-#   if defined(X86_MOVDIR64B) //                -mmovdir64b
+#   if defined(SIS_X86_MOVDIR64B) //                -mmovdir64b
         Intrin void     _movdir64b(void *, void const *);
 #   endif
 
 /*  "Instruction Execution Serialization"
     -march=alderlake 
 #   include <serializeintrin.h> */
-#   if defined(X86_SERIALIZE) //                -mserialize
+#   if defined(SIS_X86_SERIALIZE) //                -mserialize
         Intrin void     _serialize(void);
 #   endif
 
 /*  "Enqueue Store"
     -march=sapphirerapids
 #   include <enqcmdintrin.h> */
-#   if defined(X86_ENQCMD) //                   -menqcmd
+#   if defined(SIS_X86_ENQCMD) //                   -menqcmd
         Intrin int      _enqcmd (void *, void const *);
         Intrin int      _enqcmds(void *, void const *);
 #   endif
@@ -1107,14 +1107,14 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  Transactional Synchronization Extensions
     -march=haswell
 */
-#   if defined(X86_TSX)
+#   if defined(SIS_X86_TSX)
 
 /*      Hardware Lock Elision */
-#       if defined(X86_HLE) //                  -mhle
+#       if defined(SIS_X86_HLE) //                  -mhle
 #       endif
 
 /*      Restricted Transactional Memory */
-#       if defined(X86_RTM) //                  -mrtm
+#       if defined(SIS_X86_RTM) //                  -mrtm
 #           define _XBEGIN_STARTED   (~0u)
 #           define _XABORT_EXPLICIT  (1 << 0)
 #           define _XABORT_RETRY     (1 << 1)
@@ -1131,18 +1131,18 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*      Transactional Synchronization Extensions: Load Address Tracking
         -march=sapphirerapids
 #       include <tsxldtrkintrin.h> */
-#       if defined(X86_TSXLDTRK) //             -mtsxldtrk
+#       if defined(SIS_X86_TSXLDTRK) //             -mtsxldtrk
             Intrin void     _xresldtrk(void);
             Intrin void     _xsusldtrk(void);
 #       endif
 
-#   endif // defined(X86_TSX)
+#   endif // defined(SIS_X86_TSX)
 
 
 /*  Platform Configuration
     -march=icelake-server
 #   include <pconfigintrin.h> */  
-#   if defined(X86_PCONFIG) //                  -mpconfig
+#   if defined(SIS_X86_PCONFIG) //                  -mpconfig
         Inline unsigned _pconfig_u32(unsigned, size_t[]);
 #   endif
 
@@ -1150,11 +1150,18 @@ div128_t    idivwq  (int128_t a, int128_t b)
 #   error "unknown CPU vendor"
 #endif
 
+#if defined(SPE_X86_PSE)
+#   define MY_MMU_TWENTYTWO 1
+#endif
+#if defined(SPE_X86_PDPE1GB)
+#   undef  MY_MMU_THIRTY
+#   define MY_MMU_THIRTY 1
+#endif
 /*  Matrix Math Extensions?
     -march=pentium2
     -march=k6
 #   include <mmintrin.h> */
-#if defined(X86_MMX) //                         -mmmx
+#if defined(SIS_X86_MMX) //                         -mmmx
 
     // scvt(v) => ((T) v)
     INLINE int     _mm_cvtsi64_si32(__m64);
@@ -1195,16 +1202,16 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=pentium3
     -march=k8
 */
-#if defined(X86_SSE) //                         -msse
+#if defined(SIS_X86_SSE) //                         -msse
 
 #   include <xmmintrin.h>
 
-#   ifndef X86_PREFETCH
-#   define X86_PREFETCH
+#   ifndef SIS_X86_PREFETCH
+#   define SIS_X86_PREFETCH
 #   endif
 
-#   ifndef X86_FXSR
-#   define X86_FXSR
+#   ifndef SIS_X86_FXSR
+#   define SIS_X86_FXSR
 #   endif
 
 #endif
@@ -1214,7 +1221,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=k8
 #   include <emmintrin.h>
 */
-#if defined(X86_SSE2) //                        -msse2
+#if defined(SIS_X86_SSE2) //                        -msse2
     INLINE __m64d   _mm_add_pi64(__m64d, __m64d);       // daddid
     
 #endif
@@ -1224,13 +1231,13 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=k8-sse3
 #   include <pmmintrin.h>
 */
-#if defined(X86_SSE3) //                        -msse3
+#if defined(SIS_X86_SSE3) //                        -msse3
     INLINE __m128   _mm_lddqu_si128 (__m128i const *);
     INLINE __m128   _mm_hadd_ps     (__m128, __m128);
     INLINE __m128d  _mm_hadd_pd     (__m128d, __m128d);
     INLINE __m128   _mm_hsub_ps     (__m128, __m128);
 
-#   if defined(X86_MONITOR)
+#   if defined(SIS_X86_MONITOR)
         INLINE void _mm_mwait       (unsigned, unsigned);
         INLINE void _mm_monitor     (void const *, unsigned, unsigned);
 #   endif
@@ -1242,7 +1249,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=bdver1
 #   include <tmmintrin.h>
 */
-#if defined(X86_SSSE3) //                       -mssse3
+#if defined(SIS_X86_SSSE3) //                       -mssse3
     INLINE __m64    _mm_abs_pi8 (__m64);
     INLINE __m64    _mm_abs_pi16(__m64);
     INLINE __m64    _mm_abs_pi32(__m64);
@@ -1257,16 +1264,16 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=nehalem
     -march=bdver1
 */
-#if defined(X86_SSE41) //                       -msse4.1
+#if defined(SIS_X86_SSE41) //                       -msse4.1
 #   include <nmmintrin.h>
 #endif
 
 /*  "Streaming SIMD 4.2"
 */
-#if defined(X86_SSE42) //                       -msse4.2
+#if defined(SIS_X86_SSE42) //                       -msse4.2
 #   include <smmintrin.h>
-#   ifndef X86_CRC32C
-#   define X86_CRC32C
+#   ifndef SIS_X86_CRC32C
+#   define SIS_X86_CRC32C
 #   endif
 
     Intrin int          _mm_cmpistra(__m128i, __m128i, int const op);
@@ -1292,7 +1299,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
 
 #endif
 
-#if defined(X86_CRC32C)
+#if defined(SIS_X86_CRC32C)
     Intrin uint32_t     _mm_crc32_u8(uint32_t, uint8_t);
     Intrin uint32_t     _mm_crc32_u16(uint32_t, uint16_t);
     Intrin uint32_t     _mm_crc32_u32(uint32_t, uint32_t);
@@ -1304,7 +1311,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=bdver1
 #   include <avxintrin.h>
 */
-#if defined(X86_AVX) //                         -mavx
+#if defined(SIS_X86_AVX) //                         -mavx
 #endif
 
 /*  "Advanced Vector Extensions 2"
@@ -1312,7 +1319,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=bdver4
 #   include <avx2intrin.h>
 */
-#if defined(X86_AVX2) //                        -mavx2
+#if defined(SIS_X86_AVX2) //                        -mavx2
 #endif
 
 /*  Control-Flow Enforcement Technology: Shadow Stack
@@ -1324,7 +1331,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     Also, -mcet-switch enables branch tracing for C switch
     statements implemented as a lookup table.
 */
-#if defined(X86_CETSS) //                       -mshstk
+#if defined(SIS_X86_CETSS) //                       -mshstk
     Intrin void         _incsspd(int);
     Intrin void         _saveprevssp(void);
     Intrin void         _rstorssp(void *);
@@ -1356,7 +1363,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=core2
     -march=bdver1
 */
-#if defined(X86_CX16)
+#if defined(SIS_X86_CX16)
 #   error "the CMPXCHG16B instruction is required"
 #endif
 
@@ -1364,15 +1371,15 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=haswell
     -march=bdver2
 */
-#if defined(X86_BMI1) //                        -mbmi
+#if defined(SIS_X86_BMI1) //                        -mbmi
 #   include <bmiintrin.h>
 
-#   ifndef  X86_TZCNT
-#   define  X86_TZCNT
+#   ifndef  SIS_X86_TZCNT
+#   define  SIS_X86_TZCNT
 #   endif
 
-#   ifndef  X86_LZCNT
-#   define  X86_LZCNT
+#   ifndef  SIS_X86_LZCNT
+#   define  SIS_X86_LZCNT
 #   endif
 
 //  f(a, b) => (~a&b)
@@ -1409,7 +1416,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=haswell
     -march=bdver4
 */
-#if defined(X86_BMI2) //                        -mbmi2
+#if defined(SIS_X86_BMI2) //                        -mbmi2
 
 #   include <bmi2intrin.h>
 //  f(i, j) => (i[:widthof(i)-j])
@@ -1440,7 +1447,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=nehalem
     -march=barcelona
 */
-#if defined(X86_POPCNT) //                      -mpopcnt
+#if defined(SIS_X86_POPCNT) //                      -mpopcnt
 #   include <popcntintrin.h>
     Intrin int32_t      _mm_popcnt_u32(uint32_t);
     Intrin int64_t      _mm_popcnt_u64(uint64_t);
@@ -1450,7 +1457,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=haswell
     -march=barcelona
 */
-#if defined(X86_LZCNT) //                       -mlzcnt
+#if defined(SIS_X86_LZCNT) //                       -mlzcnt
 #   include <lzcntintrin.h>
     Intrin uint32_t     _lzcnt_u32(uint32_t);
     Intrin uint64_t     _lzcnt_u64(uint64_t);
@@ -1460,9 +1467,9 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=westmere
     -march=bdver1
 */
-#if defined(X86_AES) //                         -maes
-#   ifndef X86_CLMUL
-#   define X86_CLMUL
+#if defined(SIS_X86_AES) //                         -maes
+#   ifndef SIS_X86_CLMUL
+#   define SIS_X86_CLMUL
 #   endif
     Intrin __m128i          _mm_aesimc_si128(__m128i);
     Intrin __m128i          _mm_aesenc_si128(__m128i, __m128i);
@@ -1476,7 +1483,7 @@ div128_t    idivwq  (int128_t a, int128_t b)
     -march=westmere
     -march=bdver1
 */
-#if defined(X86_PCLMULQDQ) //                       -mpclmul
+#if defined(SIS_X86_PCLMULQDQ) //                       -mpclmul
 #   include <wmmintrin.h>
     Intrin __m128i      _mm_clmulepi64_si128(__m128i, __m128i, int const);
 /*
@@ -1490,9 +1497,9 @@ div128_t    idivwq  (int128_t a, int128_t b)
 /*  "Carry-less Multiplication"
 VPCLMULQDQ
 */
-#if defined(X86_VPCLMULQDQ)
+#if defined(SIS_X86_VPCLMULQDQ)
     Intrin __m512i      _mm512_clmulepi64_epi128(__m512i, __m512i, int const);
-#   if defined(X86_AVX512VL)
+#   if defined(SIS_X86_AVX512VL)
 /*  -march=znver2
     -march=sierraforest
 */
@@ -1504,20 +1511,20 @@ VPCLMULQDQ
 -march=icelake|goldmont
 -march=znver1
 */
-#if defined(X86_SHA) //                         -msha
-#   ifndef  X86_SHA1
-#   define  X86_SHA1
+#if defined(SIS_X86_SHA) //                         -msha
+#   ifndef  SIS_X86_SHA1
+#   define  SIS_X86_SHA1
 #   endif
 
-#   ifndef  X86_SHA2
-#   define  X86_SHA2
+#   ifndef  SIS_X86_SHA2
+#   define  SIS_X86_SHA2
 #   endif
 
 #endif
 
-#if defined(X86_SHA1)
-#   ifndef X86_SHA
-#   define X86_SHA
+#if defined(SIS_X86_SHA1)
+#   ifndef SIS_X86_SHA
+#   define SIS_X86_SHA
 #   endif
     Intrin __m128i      _mm_sha1msg1_epu32(__m128i, __m128i);
     Intrin __m128i      _mm_sha1msg2_epu32(__m128i, __m128i);
@@ -1525,9 +1532,9 @@ VPCLMULQDQ
     Intrin __m128i      _mm_sha1rnds4_epu32(__m128i, __m128i, int);
 #endif
 
-#if defined(X86_SHA2)
-#   ifndef X86_SHA
-#   define X86_SHA
+#if defined(SIS_X86_SHA2)
+#   ifndef SIS_X86_SHA
+#   define SIS_X86_SHA
 #   endif
     Intrin __m128i      _mm_sha256msg1_epu32(__m128i, __m128i);
     Intrin __m128i      _mm_sha256msg2_epu32(__m128i, __m128i);
@@ -1540,7 +1547,7 @@ VPCLMULQDQ
     -march=haswell
     -march=bdver2
 */
-#if defined(X86_FMA) //                         -mfma
+#if defined(SIS_X86_FMA) //                         -mfma
 #   include <fmaintrin.h>
 #endif
 
@@ -1548,7 +1555,7 @@ VPCLMULQDQ
     -march=skylake | goldmont
     -march=znver1
 */
-#if defined(X86_CLFLUSHOPT) //                  -mclflushopt
+#if defined(SIS_X86_CLFLUSHOPT) //                  -mclflushopt
     #include <clflushoptintrin.h>
     Intrin void         _mm_clflushopt(void const *);
 #endif
@@ -1557,7 +1564,7 @@ VPCLMULQDQ
     -march=skylake-avx512 | icelake-client
     -march=znver2
 */
-#if defined(X86_CLWB) //                        -mclwb
+#if defined(SIS_X86_CLWB) //                        -mclwb
 #   include <clwbintrin.h>
     Intrin void         _mm_clwb(void const *);
 #endif
@@ -1566,7 +1573,7 @@ VPCLMULQDQ
     -march=ivybridge
     -march=bdver1
 */
-#if defined(X86_F16C) //                        -mf16c
+#if defined(SIS_X86_F16C) //                        -mf16c
 #   include <f16cintrin.h>
     Intrin __m128       _mm_cvtph_ps(__m128i);
     Intrin float        _cvtsh_ss(uint16_t);
@@ -1588,13 +1595,13 @@ VPCLMULQDQ
     -march=broadwell
     -march=znver1
 */
-#if defined(X86_RDSEED) //                      -rdseed
+#if defined(SIS_X86_RDSEED) //                      -rdseed
 #   include <rdseedintrin.h>
     Intrin int          _rdseed16_step(uint16_t *);
     Intrin int          _rdseed32_step(uint32_t *);
     Intrin int          _rdseed64_step(uint64_t *);
-#   ifndef X86_RDRAND
-#   define X86_RDRAND
+#   ifndef SIS_X86_RDRAND
+#   define SIS_X86_RDRAND
 #   endif
 #endif
 
@@ -1602,7 +1609,7 @@ VPCLMULQDQ
     -march=ivybridge
     -march=znver1
 */
-#if defined(X86_RDRAND) //                      -rdrand
+#if defined(SIS_X86_RDRAND) //                      -rdrand
     Intrin int          _rdrand16_step(uint16_t *);
     Intrin int          _rdrand32_step(uint32_t *);
     Intrin int          _rdrand64_step(uint64_t *);
@@ -1612,7 +1619,7 @@ VPCLMULQDQ
     -march=goldmont-plus
     -march=znver2
 */
-#if defined(X86_RDPID)
+#if defined(SIS_X86_RDPID)
     Intrin unsigned     _rdpid_u32(void);
 #endif
 
@@ -1620,7 +1627,7 @@ VPCLMULQDQ
     -march=ivybridge
     -march=bdver3
 */
-#if defined(X86_FSGSBASE) //                    -mfsgsbase
+#if defined(SIS_X86_FSGSBASE) //                    -mfsgsbase
 
     Intrin unsigned     _readfsbase_u32(void);
     Intrin void         _writefsbase_u32(unsigned);
@@ -1637,13 +1644,13 @@ VPCLMULQDQ
 
 /*  Insert 32 bit PTW
 */
-#if defined(X86_PTWRITE) //                 -mptwrite
+#if defined(SIS_X86_PTWRITE) //                 -mptwrite
     Intrin void         _ptwrite32(uint32_t);
     Intrin void         _ptwrite64(uint64_t);
 #endif
 
 /*  "Instruction Prefetch" */
-#if defined(X86_PREFETCH)
+#if defined(SIS_X86_PREFETCH)
 
     Intrin void         _mm_prefetch (char const *, int const i);
 
@@ -1652,17 +1659,17 @@ VPCLMULQDQ
     _Static_assert(1|_MM_HINT_T1,  "...");
     _Static_assert(1|_MM_HINT_T2,  "...");
 
-#   if defined(X86_PREFETCHWT1) //          -mprefetchwt1
+#   if defined(SIS_X86_PREFETCHWT1) //          -mprefetchwt1
         _Static_assert(1|_MM_HINT_ET1,  "...");
 #   endif
 
-#   if defined(X86_PREFETCHW) //            -mprfchw
+#   if defined(SIS_X86_PREFETCHW) //            -mprfchw
         _Static_assert(1|_MM_HINT_ET0,  "...");
 #   endif
 
 #endif
 
-#if defined(X86_PREFETCHI) //               -mprefetchi
+#if defined(SIS_X86_PREFETCHI) //               -mprefetchi
     Intrin void         _m_prefetchit0(void const *);
     Intrin void         _m_prefetchit1(void const *);
 #endif
@@ -1671,13 +1678,13 @@ VPCLMULQDQ
     -march=icelake-server
     -march=znver2
 */
-#if defined(X86_WBNOINVD) //                -mwbnoinvd
+#if defined(SIS_X86_WBNOINVD) //                -mwbnoinvd
     Intrin void         _wbnoinvd(void);
 #endif
 
-#if defined(X86_ADX) //                     -madx
-#   ifndef  X86_ADCX
-#   define  X86_ADCX
+#if defined(SIS_X86_ADX) //                     -madx
+#   ifndef  SIS_X86_ADCX
+#   define  SIS_X86_ADCX
 #   endif
 
 #endif
@@ -1686,28 +1693,28 @@ VPCLMULQDQ
     -march=broadwell
     -march=znver2
 */
-#if defined(X86_ADCX) //                    -madcx
+#if defined(SIS_X86_ADCX) //                    -madcx
     Intrin uint8_t      _addcarryx_u32(uint8_t, uint32_t, uint32_t, uint32_t *);
     Intrin uint8_t      _subborrow_u32(uint8_t, uint32_t, uint32_t, uint32_t *);
     Intrin uint8_t      _addcarryx_u64(uint8_t, uint64_t, uint64_t, uint64_t *);
     Intrin uint8_t      _subborrow_u64(uint8_t, uint64_t, uint64_t, uint64_t *);
 #endif
 
-#if defined(X86_XSS)
-#   ifndef  X86_XSAVE
-#   define  X86_XSAVE
+#if defined(SIS_X86_XSS)
+#   ifndef  SIS_X86_XSAVE
+#   define  SIS_X86_XSAVE
 #   endif
 #endif
 
-#if defined(X86_XSAVEC)
-#   ifndef  X86_XSAVE
-#   define  X86_XSAVE
+#if defined(SIS_X86_XSAVEC)
+#   ifndef  SIS_X86_XSAVE
+#   define  SIS_X86_XSAVE
 #   endif
 #endif
 
-#if defined(X86_XSAVEOPT)
-#   ifndef  X86_XSAVE
-#   define  X86_XSAVE
+#if defined(SIS_X86_XSAVEOPT)
+#   ifndef  SIS_X86_XSAVE
+#   define  SIS_X86_XSAVE
 #   endif
 #endif
 
@@ -1715,7 +1722,7 @@ VPCLMULQDQ
     -march=sandybridge
     -march=bdver1
 */
-#if defined(X86_XSAVE) //                   -mxsave
+#if defined(SIS_X86_XSAVE) //                   -mxsave
     Inline void         _xsave(void *, uint64_t);
     Inline void         _xrstor(void *, uint64_t);
     Inline void         _xsave64(void *, uint64_t);
@@ -1727,7 +1734,7 @@ VPCLMULQDQ
     -march=skylake|goldmont
     -march=znver1
 */
-#   if defined(X86_XSAVEC) //               -mxsavec
+#   if defined(SIS_X86_XSAVEC) //               -mxsavec
         Intrin void     _xsavec(void *, uint64_t);
         Intrin void     _xsavec64(void *, uint64_t);
 #   endif
@@ -1736,7 +1743,7 @@ VPCLMULQDQ
     -march=skylake|goldmont
     -march=znver1
 */
-#   if defined(X86_XSS) //                  -mxsaves
+#   if defined(SIS_X86_XSS) //                  -mxsaves
         Intrin void     _xsaves(void *, uint64_t);
         Intrin void     _xsaves64(void *, uint64_t);
 #   endif
@@ -1745,7 +1752,7 @@ VPCLMULQDQ
     -march=skylake|goldmont
     -march=znver1
 */
-#   if defined(X86_XSAVEOPT) //             -mxsaveopt
+#   if defined(SIS_X86_XSAVEOPT) //             -mxsaveopt
         Intrin void     _xsaves(void *, uint64_t);
         Intrin void     _xsaves64(void *, uint64_t);
 #   endif
@@ -1754,19 +1761,19 @@ VPCLMULQDQ
 
 /*  Save x87, MMX, XMM, & MXCSR in 64B-aligned 512B struct
 */
-#if defined(X86_FXSR) //                    -mfxsr
+#if defined(SIS_X86_FXSR) //                    -mfxsr
     Intrin void         _fxsave(void *);
     Intrin void         _fxrstor(void *);
     Intrin void         _fxsave64(void *);
     Intrin void         _fxrstor64(void *);
 #endif
 
-#if defined(X86_PKU) //                     -mpku
+#if defined(SIS_X86_PKU) //                     -mpku
     Intrin void         _wrpkru(unsigned);
     Intrin void         _rdpkru_32(void);
 #endif
 
-#if defined(X86_CMPCCXADD) //               -mcmpccxadd
+#if defined(SIS_X86_CMPCCXADD) //               -mcmpccxadd
 
     typedef enum {
         _CMPCCX_O,   /* Overflow.  */
@@ -1796,7 +1803,7 @@ VPCLMULQDQ
 
 /*
 */
-#if defined(X86_RAOINT)         //          -mraoint
+#if defined(SIS_X86_RAOINT)         //          -mraoint
 #   include <raointintrin.h>    // clang/llvm
 #   include <x86gprintrin.h>    // intel
     Intrin void         _aadd_i32(int32_t *, int32_t);
@@ -1816,46 +1823,46 @@ VPCLMULQDQ
     -march=tremont
     -march=znver4
 */
-#if defined(X86_GFNI) //                    -mgfni
-#   if defined(X86_AVX512VL)
+#if defined(SIS_X86_GFNI) //                    -mgfni
+#   if defined(SIS_X86_AVX512VL)
         Intrin __m128i  _mm_gf2p8affine_epi64_epi8(__m128i, __m128i, int);
 #   endif
 #endif
 
-#if defined(X86_AMXCOMPLEX) //              -mamx-complex
+#if defined(SIS_X86_AMXCOMPLEX) //              -mamx-complex
 #endif
 
 
-#if !(defined(_MSC_VER) || defined(X86_SCE)) || __has_feature(modules) ||      \
-    defined(X86_PTWRITE)
+#if !(defined(_MSC_VER) || defined(SIS_X86_SCE)) || __has_feature(modules) ||      \
+    defined(SIS_X86_PTWRITE)
 #include <ptwriteintrin.h>
 #endif
 
-#if !(defined(_MSC_VER) || defined(X86_SCE)) || __has_feature(modules) ||      \
-    defined(X86_INVPCID)
+#if !(defined(_MSC_VER) || defined(SIS_X86_SCE)) || __has_feature(modules) ||      \
+    defined(SIS_X86_INVPCID)
 #   include <invpcidintrin.h>
 #endif
 
-#if defined(X86_KL) || defined(X86_WIDEKL)
+#if defined(SIS_X86_KL) || defined(SIS_X86_WIDEKL)
 #   include <keylockerintrin.h>
 #endif
 
-#if defined(X86_AMX)
+#if defined(SIS_X86_AMX)
 #   include <amxintrin.h>
-//  -mamx-tile              X86_AMXTILE
-//  -mamx-bf16              X86_AMXBF16
-//  -mamx-int8              X86_AMXINT8
-//  -mamx-fp16              X86_AMX_FP16
+//  -mamx-tile              SIS_X86_AMXTILE
+//  -mamx-bf16              SIS_X86_AMXBF16
+//  -mamx-int8              SIS_X86_AMXINT8
+//  -mamx-fp16              SIS_X86_AMX_FP16
 
 #endif
 
-#if !(defined(_MSC_VER) || defined(X86_SCE)) || __has_feature(modules) ||      \
-    defined(X86_AVX512VP2INTERSECT)
+#if !(defined(_MSC_VER) || defined(SIS_X86_SCE)) || __has_feature(modules) ||      \
+    defined(SIS_X86_AVX512VP2INTERSECT)
 #include <avx512vp2intersectintrin.h>
 #endif
 
-#if !(defined(_MSC_VER) || defined(X86_SCE)) || __has_feature(modules) ||      \
-    (defined(X86_AVX512VL) && defined(X86_AVX512VP2INTERSECT))
+#if !(defined(_MSC_VER) || defined(SIS_X86_SCE)) || __has_feature(modules) ||      \
+    (defined(SIS_X86_AVX512VL) && defined(SIS_X86_AVX512VP2INTERSECT))
 #include <avx512vlvp2intersectintrin.h>
 #endif
 
@@ -1863,33 +1870,33 @@ VPCLMULQDQ
 
 
 
-#       endif // X86_SSE3
-#   endif // X86_SSE2
-#endif // X86_SSE
+#       endif // SIS_X86_SSE3
+#   endif // SIS_X86_SSE2
+#endif // SIS_X86_SSE
 
--mkl                    X86_KL
--mwidekl                X86_WIDEKL
--mavx512vnni            X86_AVX512VNNI
--mhle                   X86_HLE
+-mkl                    SIS_X86_KL
+-mwidekl                SIS_X86_WIDEKL
+-mavx512vnni            SIS_X86_AVX512VNNI
+-mhle                   SIS_X86_HLE
 
--mvaes                  X86_VAES
+-mvaes                  SIS_X86_VAES
 
 /*  User-mode memory monitoring and waiting
     -tremont|alderlake
 */
-#if defined(X86_WAITPKG) //                 -mwaitpkg
+#if defined(SIS_X86_WAITPKG) //                 -mwaitpkg
     Intrin uint8_t      _tpause(uint32_t, uint64_t);
     Intrin void         _umonitor(void *);
     Intrin uint8_t      _umwait(uint32_t, uint64_t);
 #endif
 
 
--mvpclmulqdq            X86_VPCLMULQDQ
+-mvpclmulqdq            SIS_X86_VPCLMULQDQ
 
--mavxvnni               X86_AVXVNNI
--mavxifma               X86_AVXIFMA
--mavxvnniint8           X86_AVXVNNIINT8
--mavxneconvert          X86_AVXNECONVERT
+-mavxvnni               SIS_X86_AVXVNNI
+-mavxifma               SIS_X86_AVXIFMA
+-mavxvnniint8           SIS_X86_AVXVNNIINT8
+-mavxneconvert          SIS_X86_AVXNECONVERT
 
 vaes+avx512f
 __m512i _mm512_aesdec_epi128(__m512i a, __m512i RoundKey)
@@ -1906,7 +1913,7 @@ __m256i _mm256_aesdeclast_epi128(__m256i a, __m256i RoundKey)
 /*  Trailing Bit Manipulation
 -march=bdver2
 */
-#if defined(X86_TBM) //                         -mtbm
+#if defined(SIS_X86_TBM) //                         -mtbm
 #   define __bextri_u32(a, b) __builtin_ia32_bextri_u32((a),(b))
     Inline unsigned __blcfill_u32(unsigned a) {return a&(a+1);}
     Inline unsigned __blci_u32(unsigned  a) {return a|~(a+1);}
